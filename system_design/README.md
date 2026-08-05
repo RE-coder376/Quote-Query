@@ -11,6 +11,7 @@ Purpose:
 Current files:
 
 - `product_system_summary.md` — current locked product understanding
+- `market_country_retest_2026-08-06.md` - US vs UK vs UAE/Gulf market retest after finding direct WhatsApp CRM competition
 
 Rules for this folder:
 
