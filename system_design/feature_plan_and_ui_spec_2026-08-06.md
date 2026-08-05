@@ -1,6 +1,6 @@
 # QuoteRadar — Feature plan + UI/functional spec
 
-Date: 2026-08-06
+Date: 2026-08-06 (F5/F6/F11 superseded same day — see [[auto_classification_state_model_2026-08-06]]: Mark as Quote is now optional enrichment, not a required gate; states are auto-computed from WhatsApp message ticks + time, not manual clicks)
 
 Purpose: turn everything locked so far ([[product_system_summary]] workflow + UI skeleton, [[competitor_feature_diff_and_build_scope_2026-08-06]] scope lock, [[whatsapp_foundation_options]] + [[codebase_fit_assessment]] foundation choice) into a single feature-by-feature functional spec a build session can work from directly. One new feature is proposed at the end, flagged as a suggestion, not a locked decision.
 

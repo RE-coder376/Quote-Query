@@ -1,6 +1,6 @@
 ﻿# Quote Recovery Queue - Product System Summary
 
-Last updated: August 2, 2026
+Last updated: August 2, 2026 (state model revised August 6, 2026 — see [[auto_classification_state_model_2026-08-06]])
 
 ![Quote Querry UI Mockup](quote_querry_ui_mockup.png)
 
@@ -40,7 +40,7 @@ That misses a separate, earlier failure: an inbound pricing question that sits u
 
 Fix: don't require a manual action to start tracking. Every inbound message enters the pipeline automatically as `Unanswered`. `Mark as Quote` becomes a stage transition, not the entry point.
 
-## Simple workflow
+## Simple workflow (superseded — see [[auto_classification_state_model_2026-08-06]] for the current model)
 
 1. Customer messages the business on WhatsApp
 2. The conversation loads into our system through WhatsApp integration
@@ -49,6 +49,8 @@ Fix: don't require a manual action to start tracking. Every inbound message ente
 5. When staff actually sends a quotation / estimate / BOQ, they click `Mark as Quote`
 6. The system starts tracking what happens after the quote was sent
 7. The quote stays tracked until it becomes won, lost, delayed, or otherwise closed
+
+**Aug 6 revision:** step 5's manual click was found to reopen the same "gets buried" failure the product exists to fix — a person who misses a message will equally miss clicking a button about it. Current model: every conversation is auto-classified into a state purely from WhatsApp message ticks (read/delivered) + elapsed time, with zero manual action required anywhere. `Mark as Quote` still exists but only as an optional value/outcome-tracking annotation, not a gate. Full detail in [[auto_classification_state_model_2026-08-06]].
 
 ## The most important product rule
 
