@@ -136,6 +136,10 @@ Meaning:
 - incoming messages and statuses come through official APIs/webhooks
 - the product should be built around official business integration, not WhatsApp Web scraping
 
+## Update 2026-08-06 — Coexistence-specific candidate found
+
+`open-bsp-api` (`github.com/matiasbattocchia/open-bsp-api`) implements Coexistence via Embedded Signup directly and is multi-tenant. Narrower than wacrm — it covers only the Coexistence connection step, not a full inbox/CRM shell. Read it specifically for the Embedded Signup + webhook handling; still use wacrm for the inbox/CRM shell layer. Full feature-scope comparison against Kommo/Zena/Adjoltz now lives in [[competitor_feature_diff_and_build_scope_2026-08-06]].
+
 ## Current technical recommendation
 
 If we continue with this product, the current best path is:
