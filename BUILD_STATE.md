@@ -19,7 +19,7 @@ limit runs out mid-task, continuing the same task from where Claude stopped.
 
 **Active agent:** none
 
-**Last updated by:** Codex (Aug 6, 2026) - Gulf validation target list added
+**Last updated by:** Codex (Aug 6, 2026) - Gulf validation wa.me links added
 
 ---
 
@@ -29,6 +29,7 @@ limit runs out mid-task, continuing the same task from where Claude stopped.
 - Retested US vs UK vs UAE/Gulf after finding direct WhatsApp CRM competition.
 - Verdict: UAE/Gulf remains best first-client market, but only with sharper "simple quote radar" positioning and lower v1 pricing than the old AED 300-500 guess.
 - Added `outreach/gulf_fitout_targets_2026-08-06.md` with 15 vetted UAE interior fit-out / joinery / kitchen renovation candidates that visibly use WhatsApp as an enquiry or quote channel.
+- Added `outreach/gulf_fitout_validation_wame_2026-08-06.md` with prefilled validation-question wa.me links for the 15 Gulf targets. No email/send action was performed.
 
 ---
 
@@ -45,6 +46,7 @@ Codex to deliver the WhatsApp integration research/spec doc
 Claude Code builds against that spec once it lands.
 
 Hamza can use `outreach/gulf_fitout_targets_2026-08-06.md` for the next validation-question step once the validation question itself is finalized.
+Hamza can use `outreach/gulf_fitout_validation_wame_2026-08-06.md` to manually open/send the validation messages after checking each link.
 
 ---
 
