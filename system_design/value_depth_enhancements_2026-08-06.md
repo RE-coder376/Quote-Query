@@ -24,7 +24,9 @@ Purpose: the core loop ([[auto_classification_state_model_2026-08-06]]) is delib
 
 **Fix:** week-over-week aggregation from data already being captured — "8 quotes went stale this month vs. 5 last month," rough win-rate over time from Won/Lost tagging. No new data collection, just a second read of the same table over a date range. Gives the owner a reason to open the product even on a quiet day, and gives *you* a reason for the subscription to keep feeling worth it past week one.
 
-## 4. Staff attribution — "who last touched this" (solves a named, already-validated pain point)
+## 4. Staff attribution — "who last touched this" — ⚠️ UNBUILDABLE, see [[webhook_signal_verification_2026-08-06]]
+
+**Verified 2026-08-06: remove from roadmap.** Staff share one WhatsApp number; `smb_message_echoes` reports the *number* that sent a message, not which human sent it. There is no per-staff signal in Coexistence. The underlying pain point (false coverage assumption) is still solved by the core loop — the system reports whether *any* reply exists — but attribution to a specific person is not derivable. Original text kept below for context.
 
 **Problem:** [[outreach-strategy]] discussion (earlier session) named this exact pain-point candidate for the validation questions: "false coverage assumption between staff sharing one number" — i.e. Ahmed thinks Fatima replied, nobody actually did. The current model doesn't address multi-staff accountability at all.
 

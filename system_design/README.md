@@ -19,6 +19,7 @@ Current files:
 - `auto_classification_state_model_2026-08-06.md` — supersedes manual Mark-as-Quote gate with fully automatic state classification from WhatsApp message ticks + time
 - `value_depth_enhancements_2026-08-06.md` — ranked ideas to make the product more than message structuring (revenue-at-risk framing, one-tap nudge links, trend reporting) without breaking the CRM/AI-free scope lock
 - `revenue_tracking_safeguards_2026-08-06.md` — locks the safe version of revenue-at-risk (quoted_amount only, transparent denominator) and draws a hard line against tracking actual payment (re-enters excluded accounting scope)
+- `webhook_signal_verification_2026-08-06.md` — **read before building.** Verifies what Coexistence webhooks actually deliver. Kills the 5-state model (no business-read webhook; read receipts silently fail) and replaces it with a 2+1 state model resting only on message direction + time
 
 Rules for this folder:
 

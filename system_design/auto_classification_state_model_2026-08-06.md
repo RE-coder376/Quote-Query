@@ -2,6 +2,8 @@
 
 Date: 2026-08-06
 
+> **⚠️ SUPERSEDED SAME DAY — states 1-4 below do not survive verification.** There is no webhook for "business read an incoming message" (states 1/2 cannot be separated), and outbound read status silently fails when the recipient disables read receipts (states 3/4 unreliable as a boundary). Corrected 3-state model in [[webhook_signal_verification_2026-08-06]]. The *principle* below — no manual gate, everything auto-classified — stands unchanged and is correct.
+
 Purpose: revises the state model in [[product_system_summary]] and [[feature_plan_and_ui_spec_2026-08-06]] (F5/F6/F11). Supersedes "Mark as Quote" as a required manual gate.
 
 ## The flaw this fixes
