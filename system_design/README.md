@@ -17,6 +17,7 @@ Current files:
 - `mainstream_existence_check_2026-08-06.md` — check for whether the zero-config tracking mechanism already exists mainstream elsewhere
 - `feature_plan_and_ui_spec_2026-08-06.md` — full feature-by-feature functional + UI spec for build, incl. suggested Daily Digest feature
 - `auto_classification_state_model_2026-08-06.md` — supersedes manual Mark-as-Quote gate with fully automatic state classification from WhatsApp message ticks + time
+- `value_depth_enhancements_2026-08-06.md` — ranked ideas to make the product more than message structuring (revenue-at-risk framing, one-tap nudge links, trend reporting) without breaking the CRM/AI-free scope lock
 
 Rules for this folder:
 
