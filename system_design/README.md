@@ -18,6 +18,7 @@ Current files:
 - `feature_plan_and_ui_spec_2026-08-06.md` — full feature-by-feature functional + UI spec for build, incl. suggested Daily Digest feature
 - `auto_classification_state_model_2026-08-06.md` — supersedes manual Mark-as-Quote gate with fully automatic state classification from WhatsApp message ticks + time
 - `value_depth_enhancements_2026-08-06.md` — ranked ideas to make the product more than message structuring (revenue-at-risk framing, one-tap nudge links, trend reporting) without breaking the CRM/AI-free scope lock
+- `revenue_tracking_safeguards_2026-08-06.md` — locks the safe version of revenue-at-risk (quoted_amount only, transparent denominator) and draws a hard line against tracking actual payment (re-enters excluded accounting scope)
 
 Rules for this folder:
 
