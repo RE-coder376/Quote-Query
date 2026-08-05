@@ -20,6 +20,7 @@ Current files:
 - `value_depth_enhancements_2026-08-06.md` — ranked ideas to make the product more than message structuring (revenue-at-risk framing, one-tap nudge links, trend reporting) without breaking the CRM/AI-free scope lock
 - `revenue_tracking_safeguards_2026-08-06.md` — locks the safe version of revenue-at-risk (quoted_amount only, transparent denominator) and draws a hard line against tracking actual payment (re-enters excluded accounting scope)
 - `webhook_signal_verification_2026-08-06.md` — **read before building.** Verifies what Coexistence webhooks actually deliver. Kills the 5-state model (no business-read webhook; read receipts silently fail) and replaces it with a 2+1 state model resting only on message direction + time
+- `digest_feasibility_verification_2026-08-06.md` — F12 Daily Digest verified: cost is negligible (~$0.86/mo/client), but per-client template approval must be handled programmatically or it breaks the zero-setup wedge
 
 Rules for this folder:
 
