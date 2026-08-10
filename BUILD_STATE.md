@@ -44,9 +44,23 @@ Gotchas:
 gone, with a stale `-journal` beside it. Re-tested: writes now survive redeploy
 and container recycling. Cause unproven; backups now bound the loss.
 
+Also done Aug 10 (second pass):
+- **Tenant guard**: `QR_PHONE_NUMBER_ID=1255446447652185` set live. Deliveries
+  for any other number are dropped before ingest. Verified against the live app.
+- **Client accounts**: one-time claim link → client sets their own password →
+  number + password login. `account` + `setup_codes` tables, PBKDF2-SHA256,
+  codes hashed and single-use. `modal run modal_app.py::setup_link [--reset]`.
+- Dashboard password changed from `iaah2006` to `moral` (owner override).
+- 71 tests green.
+
+⚠️ Git Bash mangles POSIX-looking env values: `QR_DB_PATH=/tmp/x.db` reaches
+Python as `C:\Users\...\Temp\x.db` from bash but `C:\tmp\x.db` from a Python
+literal. Two processes silently used different databases. Use Windows paths.
+
 Next step:
 - Tech Provider verification (Hamza — needs a Meta login and, likely, a
   registered entity). Blocks Embedded Signup, which blocks every real client.
+- Then: data deletion path, error alerting, Embedded Signup.
 
 ### Working now
 

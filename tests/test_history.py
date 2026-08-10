@@ -44,7 +44,12 @@ def payload(messages: list[dict], phase: int = 1, chunk_order: int = 1,
 
 
 @pytest.fixture
-def store(tmp_path):
+def store(tmp_path, monkeypatch):
+    """These payloads declare phone_number_id "PNID", so the instance has to be
+    configured for that number - otherwise for_phone_number() correctly discards
+    them as belonging to a different client."""
+    from app import config
+    monkeypatch.setattr(config, "PHONE_NUMBER_ID", "PNID")
     s = Store(str(tmp_path / "t.db"))
     yield s
     s.close()
@@ -152,3 +157,12 @@ def test_progress_never_goes_backwards(store):
     ingest(store, payload([msg(CUSTOMER, "wamid.1", 50, "a")], progress=100))
     ingest(store, payload([msg(CUSTOMER, "wamid.2", 49, "b")], chunk_order=2, progress=20))
     assert not sync_status(store)["active"]
+
+
+def test_history_for_another_number_is_discarded(store, monkeypatch):
+    """One instance serves one client. A backfill for someone else's number must
+    never be folded in - there is no per-tenant boundary below ingest to catch it."""
+    from app import config
+    monkeypatch.setattr(config, "PHONE_NUMBER_ID", "SOMEONE-ELSE")
+    assert ingest(store, payload([msg(CUSTOMER, "wamid.x", 5, "hello")])) == 0
+    assert store.get_conversation(CUSTOMER) is None

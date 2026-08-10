@@ -89,6 +89,50 @@ def web():
     return fastapi_app
 
 
+@app.function(image=image, volumes={"/data": volume}, secrets=[secrets],
+              max_containers=1, timeout=60)
+def setup_link(reset: bool = False):
+    """Mint the one-time link a new client uses to choose their own password.
+
+        modal run modal_app.py::setup_link
+        modal run modal_app.py::setup_link --reset    # they forgot it
+
+    Send the printed URL privately. It works once, then only /login works. The
+    code is stored hashed, so this output is the only time it exists in the
+    clear - if it is lost, mint another.
+    """
+    import os
+
+    os.environ.setdefault("QR_DB_PATH", "/data/quoteradar.db")
+    volume.reload()
+
+    from app import auth
+    from app.store import Store
+
+    store = Store(os.environ["QR_DB_PATH"])
+    existing = store.account()
+
+    if existing and not reset:
+        print(f"An account already exists for +{existing['wa_number']} "
+              f"(created {existing['created_at']}).")
+        print("Re-run with --reset to let them set a new password.")
+        return
+
+    if existing:
+        # Only the login is cleared. Conversations, amounts and outcomes stay.
+        store.conn.execute("DELETE FROM account")
+        store.conn.commit()
+        print(f"Cleared the login for +{existing['wa_number']}. Their data is untouched.")
+
+    code = auth.new_setup_code()
+    store.add_setup_code(auth.hash_setup_code(code))
+    store.close()
+    volume.commit()
+
+    print("\nSend this link, once, privately:\n")
+    print(f"  https://hamza-aiemployee--quoteradar-web.modal.run/setup?code={code}\n")
+
+
 @app.function(
     image=image,
     volumes={"/data": volume, "/backups": backups},

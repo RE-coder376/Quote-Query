@@ -8,6 +8,7 @@ wrong to a real client.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from html import escape as html_escape
 from pathlib import Path
 from typing import Optional
 
@@ -36,7 +37,7 @@ def require_auth(request: Request) -> None:
         raise HTTPException(status_code=401, detail="not signed in")
 
 
-LOGIN_PAGE = """<!doctype html><html><head><meta charset="utf-8">
+PAGE = """<!doctype html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>QuoteRadar</title>
 <style>
  body{margin:0;min-height:100vh;display:grid;place-items:center;background:#EEF1F2;
@@ -52,39 +53,130 @@ LOGIN_PAGE = """<!doctype html><html><head><meta charset="utf-8">
  button{font:inherit;font-weight:600;padding:.7rem;border:0;border-radius:5px;
         background:#2C5F7C;color:#fff;cursor:pointer}
  .err{color:#B4402C;font-size:.82rem}
+ .ok{color:#2C5F7C;font-size:.82rem}
 </style></head><body>
-<form method="post" action="/login">
+__FORM__
+</body></html>"""
+
+LOGIN_FORM = """<form method="post" action="/login">
   <h1>QuoteRadar</h1>
   <p>Sign in to see your quote queue.</p>
   __ERROR__
-  <input type="password" name="password" placeholder="Password" autofocus required>
+  <input name="number" placeholder="Your WhatsApp number" autocomplete="username"
+         inputmode="tel" autofocus required>
+  <input type="password" name="password" placeholder="Password"
+         autocomplete="current-password" required>
   <button type="submit">Sign in</button>
-</form></body></html>"""
+</form>"""
+
+SETUP_FORM = """<form method="post" action="/setup">
+  <h1>Set up QuoteRadar</h1>
+  <p>Choose your own password. Nobody else ever sees it — not even us.</p>
+  __ERROR__
+  <input type="hidden" name="code" value="__CODE__">
+  <input name="number" placeholder="Your WhatsApp Business number"
+         autocomplete="username" inputmode="tel" autofocus required>
+  <input type="password" name="password" placeholder="Choose a password"
+         autocomplete="new-password" minlength="8" required>
+  <input type="password" name="confirm" placeholder="Confirm password"
+         autocomplete="new-password" minlength="8" required>
+  <button type="submit">Create account</button>
+</form>"""
+
+DEAD_LINK = """<form>
+  <h1>This link has expired</h1>
+  <p>Setup links work once. Ask for a new one, or sign in if your account
+     already exists.</p>
+</form>"""
 
 
-@app.get("/login", response_class=HTMLResponse)
-def login_page(bad: int = 0):
-    err = '<p class="err">Wrong password.</p>' if bad else ""
-    return LOGIN_PAGE.replace("__ERROR__", err)
+def _page(form: str, error: str = "") -> str:
+    return PAGE.replace("__FORM__", form).replace(
+        "__ERROR__", f'<p class="err">{error}</p>' if error else "")
 
 
-@app.post("/login")
-def login(request: Request, password: str = Form(...)):
-    ip = request.client.host if request.client else "unknown"
-
-    if auth.rate_limited(ip):
-        raise HTTPException(status_code=429, detail="too many attempts, wait 15 minutes")
-
-    if not auth.password_ok(password):
-        auth.record_failure(ip)
-        return RedirectResponse("/login?bad=1", status_code=303)
-
-    auth.clear_failures(ip)
+def _sign_in(request: Request) -> RedirectResponse:
     resp = RedirectResponse("/", status_code=303)
     resp.set_cookie(auth.SESSION_COOKIE, auth.issue_session(),
                     httponly=True, samesite="lax",
                     secure=config.SECURE_COOKIES, max_age=auth.SESSION_TTL)
     return resp
+
+
+@app.get("/login", response_class=HTMLResponse)
+def login_page(bad: int = 0):
+    return _page(LOGIN_FORM, "Wrong number or password." if bad else "")
+
+
+@app.post("/login")
+def login(request: Request, password: str = Form(...), number: str = Form("")):
+    ip = request.client.host if request.client else "unknown"
+
+    if auth.rate_limited(ip):
+        raise HTTPException(status_code=429, detail="too many attempts, wait 15 minutes")
+
+    account = store.account()
+    supplied = auth.normalise_number(number)
+
+    # The client's own credentials, plus an owner override that keeps support
+    # access working if they forget their password.
+    ok = auth.password_ok(password) or (
+        account is not None
+        and supplied == account["wa_number"]
+        and auth.verify_password(password, account["password_hash"])
+    )
+
+    if not ok:
+        auth.record_failure(ip)
+        return RedirectResponse("/login?bad=1", status_code=303)
+
+    auth.clear_failures(ip)
+    return _sign_in(request)
+
+
+# ---------- first-time setup ----------
+
+@app.get("/setup", response_class=HTMLResponse)
+def setup_page(code: str = ""):
+    """Reached once, by private link. Everything after this is /login."""
+    if store.account() is not None:
+        return RedirectResponse("/login", status_code=303)
+    if not code or not store.setup_code_valid(auth.hash_setup_code(code)):
+        return _page(DEAD_LINK)
+    return _page(SETUP_FORM.replace("__CODE__", html_escape(code)))
+
+
+@app.post("/setup")
+def setup(request: Request, code: str = Form(...), number: str = Form(...),
+          password: str = Form(...), confirm: str = Form(...)):
+    ip = request.client.host if request.client else "unknown"
+    if auth.rate_limited(ip):
+        raise HTTPException(status_code=429, detail="too many attempts, wait 15 minutes")
+
+    if store.account() is not None:
+        return RedirectResponse("/login", status_code=303)
+
+    form = SETUP_FORM.replace("__CODE__", html_escape(code))
+
+    if not store.setup_code_valid(auth.hash_setup_code(code)):
+        auth.record_failure(ip)
+        return HTMLResponse(_page(DEAD_LINK))
+
+    wa_number = auth.normalise_number(number)
+    if len(wa_number) < 8:
+        return HTMLResponse(_page(form, "That does not look like a phone number."))
+    if password != confirm:
+        return HTMLResponse(_page(form, "The two passwords do not match."))
+    if len(password) < auth.MIN_PASSWORD:
+        return HTMLResponse(_page(
+            form, f"Use at least {auth.MIN_PASSWORD} characters."))
+
+    # Burn first: if two people open the same link at once, exactly one wins.
+    if not store.burn_setup_code(auth.hash_setup_code(code)):
+        return HTMLResponse(_page(DEAD_LINK))
+
+    store.create_account(wa_number, auth.hash_password(password))
+    return _sign_in(request)
 
 
 @app.post("/logout")

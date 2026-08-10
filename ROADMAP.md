@@ -102,7 +102,17 @@ hour of work. Deferred until someone actually uses the product daily.
 
 - **Change the dashboard password.** `iaah2006` is short and guessable, and it
   stands between the internet and a client's customer messages.
-- **Per-client credentials** rather than one shared password.
+- ~~**Per-client credentials** rather than one shared password.~~ **DONE 2026-08-10.**
+  The client claims their account through a one-time link
+  (`modal run modal_app.py::setup_link`), picks their own password, and logs in
+  with number + password thereafter. PBKDF2-SHA256, 600k iterations, stdlib.
+  Codes are stored hashed and burned on redemption. `QR_ADMIN_PASSWORD` remains
+  an owner override for support; `--reset` clears a login without touching data.
+
+  **Why a claim link and not open signup:** the product never sends WhatsApp
+  messages, so there is no OTP to verify a number with. Open signup would mean
+  the first person to type a number owns the account. When Tech Provider lands,
+  Embedded Signup replaces the link with real Meta-verified ownership.
 - ~~**Backups** of the Modal Volume.~~ **DONE 2026-08-10.** `modal_app.py::backup`
   runs nightly at 02:17 UTC, snapshots via SQLite's backup API (a plain file copy
   taken mid-write is corrupt), verifies the snapshot opens, keeps 30, and writes

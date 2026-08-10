@@ -29,6 +29,23 @@ CREATE TABLE IF NOT EXISTS messages (
 );
 CREATE INDEX IF NOT EXISTS idx_messages_wa_id ON messages(wa_id, timestamp);
 
+-- The client's own login. One instance per client, so at most one row - but a
+-- table rather than a config value, because the client sets it themselves and
+-- we must never know or store it in plaintext.
+CREATE TABLE IF NOT EXISTS account (
+    wa_number     TEXT PRIMARY KEY,
+    password_hash TEXT NOT NULL,
+    created_at    TEXT NOT NULL
+);
+
+-- One-time claim links. Hashed, so a leaked database does not hand over a live
+-- setup link, and single-use, so a forwarded link cannot be redeemed twice.
+CREATE TABLE IF NOT EXISTS setup_codes (
+    code_hash  TEXT PRIMARY KEY,
+    created_at TEXT NOT NULL,
+    used_at    TEXT
+);
+
 -- One row per Coexistence history phase (0: last day, 1: day 1-90, 2: day
 -- 90-180). Chunks arrive out of order, so progress is kept as a high-water mark
 -- rather than overwritten.
@@ -169,6 +186,49 @@ class Store:
             "SELECT * FROM conversations ORDER BY last_message_at DESC"
         ).fetchall()
         return [self._conv(r) for r in rows]
+
+    # ---- account ----
+
+    def account(self) -> Optional[dict]:
+        row = self.conn.execute("SELECT * FROM account LIMIT 1").fetchone()
+        return dict(row) if row else None
+
+    def create_account(self, wa_number: str, password_hash: str) -> None:
+        self.conn.execute(
+            "INSERT INTO account (wa_number, password_hash, created_at) VALUES (?, ?, ?)",
+            (wa_number, password_hash, _iso(datetime.now(timezone.utc))),
+        )
+        self.conn.commit()
+
+    def set_password(self, wa_number: str, password_hash: str) -> None:
+        self.conn.execute("UPDATE account SET password_hash = ? WHERE wa_number = ?",
+                          (password_hash, wa_number))
+        self.conn.commit()
+
+    # ---- one-time setup codes ----
+
+    def add_setup_code(self, code_hash: str) -> None:
+        self.conn.execute(
+            "INSERT OR IGNORE INTO setup_codes (code_hash, created_at) VALUES (?, ?)",
+            (code_hash, _iso(datetime.now(timezone.utc))),
+        )
+        self.conn.commit()
+
+    def setup_code_valid(self, code_hash: str) -> bool:
+        row = self.conn.execute(
+            "SELECT used_at FROM setup_codes WHERE code_hash = ?", (code_hash,)
+        ).fetchone()
+        return bool(row) and row["used_at"] is None
+
+    def burn_setup_code(self, code_hash: str) -> bool:
+        """Single-use, enforced by the UPDATE itself so two simultaneous
+        redemptions cannot both win."""
+        cur = self.conn.execute(
+            "UPDATE setup_codes SET used_at = ? WHERE code_hash = ? AND used_at IS NULL",
+            (_iso(datetime.now(timezone.utc)), code_hash),
+        )
+        self.conn.commit()
+        return cur.rowcount > 0
 
     # ---- history sync ----
 
