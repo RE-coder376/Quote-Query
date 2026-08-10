@@ -57,7 +57,7 @@ BODY = """
     <button class="filter" type="button" data-filter="overdue" aria-pressed="false">Overdue <span class="count" data-count="overdue">0</span></button>
     <button class="filter" type="button" data-filter="closed" aria-pressed="false">Closed <span class="count" data-count="closed">0</span></button>
     <span class="toolbar-spacer"></span>
-    <span class="threshold-note">Overdue after 24 hours</span>
+    <span class="threshold-note" id="threshold-note">Overdue after 24 hours</span>
   </div>
 
   <div class="workspace">
@@ -149,8 +149,22 @@ SCRIPT = """
 
   var activeFilter = "all", selectedId = null, cache = [], summary = {}, sync = {};
 
-  function money(n) { return (n || 0).toLocaleString("en-US"); }
-  function cur() { return summary.currency || ""; }
+  // South Asian grouping where the client expects it: 10,00,000 not 1,000,000.
+  // A number someone has to stop and count digits on is a number they distrust.
+  function money(n) {
+    n = n || 0;
+    if (summary.grouping !== "lakh") return n.toLocaleString("en-US");
+    var s = String(Math.abs(n)), out;
+    if (s.length <= 3) { out = s; }
+    else {
+      var head = s.slice(0, -3), tail = s.slice(-3), parts = [];
+      while (head.length > 2) { parts.unshift(head.slice(-2)); head = head.slice(0, -2); }
+      if (head) parts.unshift(head);
+      out = parts.concat([tail]).join(",");
+    }
+    return (n < 0 ? "-" : "") + out;
+  }
+  function cur() { return summary.currency_symbol || summary.currency || ""; }
 
   function api(path, opts) {
     return fetch(path, opts).then(function (r) {
@@ -190,6 +204,11 @@ SCRIPT = """
     document.getElementById("clock").textContent =
       new Date().toLocaleString(undefined, { weekday: "long", day: "numeric", month: "long" });
     document.getElementById("cur1").textContent = cur();
+    // The threshold is the client's own setting, so the label must not lie.
+    var hrs = summary.stale_hours || 24;
+    document.getElementById("threshold-note").textContent = "Overdue after " +
+      (hrs % 24 === 0 ? (hrs / 24) + (hrs === 24 ? " working day" : " working days")
+                      : hrs + " hours");
     document.getElementById("at-risk").textContent = money(summary.at_risk_total);
 
     // The total never appears without the fraction it came from.

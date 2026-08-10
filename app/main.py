@@ -7,6 +7,7 @@ wrong to a real client.
 """
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta, timezone
 from html import escape as html_escape
 from pathlib import Path
@@ -16,7 +17,8 @@ from fastapi import Depends, FastAPI, Form, HTTPException, Query, Request, Respo
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
 
-from . import auth, config, service
+from . import auth, config, currencies, service
+from . import settings as app_settings
 from .models import Outcome
 from .store import Store
 from .webhook import verify_signature
@@ -54,6 +56,20 @@ PAGE = """<!doctype html><html><head><meta charset="utf-8">
         background:#2C5F7C;color:#fff;cursor:pointer}
  .err{color:#B4402C;font-size:.82rem}
  .ok{color:#2C5F7C;font-size:.82rem}
+ form.wide{width:min(430px,94vw);gap:.9rem}
+ label{display:flex;flex-direction:column;gap:.3rem;font-size:.82rem;font-weight:600}
+ .hint{font-weight:400;color:#566871;font-size:.76rem;line-height:1.35}
+ select{font:inherit;padding:.6rem .5rem;border:1px solid #D3DBDE;border-radius:5px;background:#fff}
+ @media(prefers-color-scheme:dark){select{background:#121A1E;color:#E6EDF0;border-color:#2D3B42}
+   .hint{color:#8FA3AC} #cur-list{background:#1A2429!important;border-color:#2D3B42!important}
+   #cur-list li:hover{background:#232F35!important}}
+ .combo{position:relative}
+ .combo input{width:100%;box-sizing:border-box}
+ #cur-list{position:absolute;z-index:5;left:0;right:0;top:calc(100% + 2px);margin:0;
+   padding:.2rem;list-style:none;background:#fff;border:1px solid #D3DBDE;
+   border-radius:5px;max-height:210px;overflow:auto;box-shadow:0 6px 20px rgba(0,0,0,.12)}
+ #cur-list li{padding:.42rem .5rem;border-radius:4px;cursor:pointer;font-weight:400}
+ #cur-list li:hover{background:#EEF1F2}
 </style></head><body>
 __FORM__
 </body></html>"""
@@ -69,19 +85,125 @@ LOGIN_FORM = """<form method="post" action="/login">
   <button type="submit">Sign in</button>
 </form>"""
 
-SETUP_FORM = """<form method="post" action="/setup">
+SETUP_FORM = """<form method="post" action="/setup" class="wide">
   <h1>Set up QuoteRadar</h1>
-  <p>Choose your own password. Nobody else ever sees it — not even us.</p>
+  <p>Four questions. They decide which chats get flagged, so they are worth
+     thirty seconds.</p>
   __ERROR__
   <input type="hidden" name="code" value="__CODE__">
-  <input name="number" placeholder="Your WhatsApp Business number"
-         autocomplete="username" inputmode="tel" autofocus required>
-  <input type="password" name="password" placeholder="Choose a password"
-         autocomplete="new-password" minlength="8" required>
-  <input type="password" name="confirm" placeholder="Confirm password"
-         autocomplete="new-password" minlength="8" required>
+
+  <label>Business name<span class="hint">Shown at the top of your dashboard</span>
+    <input name="business_name" placeholder="Al Quoz Joinery" required></label>
+
+  <label>Your WhatsApp Business number
+    <span class="hint">This is your username for signing in. Connecting the
+      number itself is a separate step we do with you.</span>
+    <input name="number" placeholder="+92 335 410 6848" autocomplete="username"
+           inputmode="tel" required></label>
+
+  <label>Currency<span class="hint">Type a country or a code</span>
+    <div class="combo">
+      <input id="cur-search" placeholder="Pakistan, Dubai, PKR…"
+             autocomplete="off" role="combobox" aria-expanded="false"
+             aria-controls="cur-list">
+      <input type="hidden" name="currency" id="cur-value" required>
+      <ul id="cur-list" role="listbox" hidden></ul>
+    </div>
+  </label>
+
+  <label>Working week<span class="hint">Weekend days are not counted as
+      waiting — otherwise every Monday looks like a disaster</span>
+    <select name="weekend">__WEEKENDS__</select></label>
+
+  <label>Time zone
+    <select name="timezone">__ZONES__</select></label>
+
+  <label>Flag a chat as overdue after
+    <select name="stale_hours">
+      <option value="1">1 hour</option>
+      <option value="4">4 hours</option>
+      <option value="8">8 hours</option>
+      <option value="24" selected>1 working day</option>
+      <option value="48">2 working days</option>
+      <option value="72">3 working days</option>
+      <option value="168">1 working week</option>
+    </select></label>
+
+  <label>Choose a password<span class="hint">Nobody else ever sees it, not even us</span>
+    <input type="password" name="password" autocomplete="new-password"
+           minlength="8" required></label>
+  <label>Confirm password
+    <input type="password" name="confirm" autocomplete="new-password"
+           minlength="8" required></label>
+
   <button type="submit">Create account</button>
-</form>"""
+</form>
+<script>
+(function () {
+  var DATA = __CURRENCIES__;
+  var search = document.getElementById("cur-search");
+  var hidden = document.getElementById("cur-value");
+  var list = document.getElementById("cur-list");
+
+  function score(entry, q) {
+    var code = entry.code.toLowerCase(), name = entry.name.toLowerCase();
+    if (code === q || entry.terms.indexOf(q) > -1) return 0;
+    if (code.indexOf(q) === 0) return 1;
+    for (var i = 0; i < entry.terms.length; i++)
+      if (entry.terms[i].indexOf(q) === 0) return 1;
+    if (name.indexOf(q) === 0) return 2;
+    if (name.indexOf(q) > -1) return 3;
+    for (var j = 0; j < entry.terms.length; j++)
+      if (entry.terms[j].indexOf(q) > -1) return 3;
+    return -1;
+  }
+
+  function render(q) {
+    var hits = [];
+    for (var i = 0; i < DATA.length; i++) {
+      var s = q ? score(DATA[i], q) : (i < 8 ? 4 : -1);
+      if (s > -1) hits.push([s, i, DATA[i]]);
+    }
+    hits.sort(function (a, b) { return a[0] - b[0] || a[1] - b[1]; });
+    hits = hits.slice(0, 8);
+
+    list.innerHTML = hits.map(function (h) {
+      return '<li role="option" data-code="' + h[2].code + '"><b>' +
+             h[2].code + '</b> ' + h[2].name + '</li>';
+    }).join("");
+    list.hidden = hits.length === 0;
+    search.setAttribute("aria-expanded", hits.length > 0);
+  }
+
+  function pick(code) {
+    var e;
+    for (var i = 0; i < DATA.length; i++) if (DATA[i].code === code) e = DATA[i];
+    if (!e) return;
+    hidden.value = e.code;
+    search.value = e.code + " — " + e.name;
+    list.hidden = true;
+  }
+
+  search.addEventListener("input", function () {
+    hidden.value = "";
+    render(search.value.trim().toLowerCase());
+  });
+  search.addEventListener("focus", function () { render(search.value.trim().toLowerCase()); });
+  list.addEventListener("mousedown", function (ev) {
+    var li = ev.target.closest("li");
+    if (li) { ev.preventDefault(); pick(li.getAttribute("data-code")); }
+  });
+  search.addEventListener("keydown", function (ev) {
+    if (ev.key === "Enter" && !list.hidden && list.firstChild) {
+      ev.preventDefault();
+      pick(list.firstChild.getAttribute("data-code"));
+    }
+  });
+  search.form.addEventListener("submit", function (ev) {
+    if (!hidden.value) { ev.preventDefault(); search.focus(); render(""); }
+  });
+})();
+</script>"""
 
 DEAD_LINK = """<form>
   <h1>This link has expired</h1>
@@ -93,6 +215,42 @@ DEAD_LINK = """<form>
 def _page(form: str, error: str = "") -> str:
     return PAGE.replace("__FORM__", form).replace(
         "__ERROR__", f'<p class="err">{error}</p>' if error else "")
+
+
+# A short list beats a 400-entry one: these cover everywhere we plausibly sell,
+# and the setting is editable later.
+ZONES = [
+    ("Asia/Karachi", "Pakistan (PKT)"), ("Asia/Dubai", "UAE (GST)"),
+    ("Asia/Riyadh", "Saudi Arabia (AST)"), ("Asia/Qatar", "Qatar"),
+    ("Asia/Kuwait", "Kuwait"), ("Asia/Bahrain", "Bahrain"),
+    ("Asia/Muscat", "Oman"), ("Asia/Kolkata", "India (IST)"),
+    ("Asia/Dhaka", "Bangladesh"), ("Asia/Colombo", "Sri Lanka"),
+    ("Asia/Kabul", "Afghanistan"), ("Asia/Singapore", "Singapore"),
+    ("Asia/Kuala_Lumpur", "Malaysia"), ("Asia/Jakarta", "Indonesia"),
+    ("Europe/London", "United Kingdom"), ("Europe/Dublin", "Ireland"),
+    ("Europe/Berlin", "Germany"), ("Europe/Paris", "France"),
+    ("Europe/Madrid", "Spain"), ("Europe/Istanbul", "Turkey"),
+    ("Africa/Cairo", "Egypt"), ("Africa/Lagos", "Nigeria"),
+    ("Africa/Nairobi", "Kenya"), ("Africa/Johannesburg", "South Africa"),
+    ("America/New_York", "US Eastern"), ("America/Chicago", "US Central"),
+    ("America/Los_Angeles", "US Pacific"), ("America/Toronto", "Canada Eastern"),
+    ("Australia/Sydney", "Australia Eastern"), ("UTC", "UTC"),
+]
+
+
+def _setup_form(code: str, selected_zone: str = "Asia/Karachi") -> str:
+    weekends = "".join(
+        f'<option value="{key}"{" selected" if key == "sun" else ""}>'
+        f'{html_escape(label)}</option>'
+        for key, (_days, label) in app_settings.WEEKEND_PRESETS.items())
+    zones = "".join(
+        f'<option value="{tz}"{" selected" if tz == selected_zone else ""}>'
+        f'{html_escape(label)}</option>' for tz, label in ZONES)
+    return (SETUP_FORM
+            .replace("__CODE__", html_escape(code))
+            .replace("__WEEKENDS__", weekends)
+            .replace("__ZONES__", zones)
+            .replace("__CURRENCIES__", json.dumps(currencies.as_json())))
 
 
 def _sign_in(request: Request) -> RedirectResponse:
@@ -143,12 +301,15 @@ def setup_page(code: str = ""):
         return RedirectResponse("/login", status_code=303)
     if not code or not store.setup_code_valid(auth.hash_setup_code(code)):
         return _page(DEAD_LINK)
-    return _page(SETUP_FORM.replace("__CODE__", html_escape(code)))
+    return _page(_setup_form(code))
 
 
 @app.post("/setup")
 def setup(request: Request, code: str = Form(...), number: str = Form(...),
-          password: str = Form(...), confirm: str = Form(...)):
+          password: str = Form(...), confirm: str = Form(...),
+          business_name: str = Form(""), currency: str = Form(""),
+          timezone_name: str = Form("UTC", alias="timezone"),
+          weekend: str = Form("sat-sun"), stale_hours: str = Form("24")):
     ip = request.client.host if request.client else "unknown"
     if auth.rate_limited(ip):
         raise HTTPException(status_code=429, detail="too many attempts, wait 15 minutes")
@@ -156,7 +317,7 @@ def setup(request: Request, code: str = Form(...), number: str = Form(...),
     if store.account() is not None:
         return RedirectResponse("/login", status_code=303)
 
-    form = SETUP_FORM.replace("__CODE__", html_escape(code))
+    form = _setup_form(code, timezone_name)
 
     if not store.setup_code_valid(auth.hash_setup_code(code)):
         auth.record_failure(ip)
@@ -165,6 +326,8 @@ def setup(request: Request, code: str = Form(...), number: str = Form(...),
     wa_number = auth.normalise_number(number)
     if len(wa_number) < 8:
         return HTMLResponse(_page(form, "That does not look like a phone number."))
+    if currency.upper() not in currencies.CODES:
+        return HTMLResponse(_page(form, "Pick a currency from the list."))
     if password != confirm:
         return HTMLResponse(_page(form, "The two passwords do not match."))
     if len(password) < auth.MIN_PASSWORD:
@@ -175,6 +338,13 @@ def setup(request: Request, code: str = Form(...), number: str = Form(...),
     if not store.burn_setup_code(auth.hash_setup_code(code)):
         return HTMLResponse(_page(DEAD_LINK))
 
+    store.save_settings({
+        "business_name": business_name.strip() or "Your business",
+        "currency": currency.upper(),
+        "timezone": timezone_name,
+        "weekend": weekend if weekend in app_settings.WEEKEND_PRESETS else "sat-sun",
+        "stale_hours": stale_hours if stale_hours.isdigit() else "24",
+    })
     store.create_account(wa_number, auth.hash_password(password))
     return _sign_in(request)
 

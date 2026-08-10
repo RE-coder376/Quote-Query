@@ -32,10 +32,13 @@ def mint(client) -> str:
 
 
 def do_setup(client, code, number="+971 50 123 4567", password="correct-horse",
-             confirm=None):
-    return client.post("/setup", data={"code": code, "number": number,
-                                       "password": password,
-                                       "confirm": confirm or password})
+             confirm=None, **overrides):
+    data = {"code": code, "number": number, "password": password,
+            "confirm": confirm or password, "business_name": "Al Quoz Joinery",
+            "currency": "AED", "timezone": "Asia/Dubai", "weekend": "sat-sun",
+            "stale_hours": "24"}
+    data.update(overrides)
+    return client.post("/setup", data=data)
 
 
 # ---- password hashing ----

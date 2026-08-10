@@ -4,9 +4,9 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Optional
 
-from . import config
+from . import config, settings
 from .models import Contact, ConvState, Conversation, Outcome, utcnow
-from .state import apply_message, close, is_overdue, reopen, state_for, waiting_for
+from .state import apply_message, close, reopen, state_for, waiting_for
 from .store import Store
 from .webhook import (for_phone_number, parse_contacts, parse_history_chunks,
                       parse_messages, parse_read_receipts,
@@ -101,8 +101,8 @@ def set_outcome(store: Store, wa_id: str, outcome: Optional[Outcome]) -> Convers
     return conv
 
 
-def _elapsed(since: datetime, now: datetime) -> str:
-    mins = max(int((now - since).total_seconds() // 60), 0)
+def _elapsed_text(hours: float) -> str:
+    mins = max(int(hours * 60), 0)
     if mins < 60:
         return f"{mins} min"
     if mins < 60 * 48:
@@ -110,10 +110,22 @@ def _elapsed(since: datetime, now: datetime) -> str:
     return f"{mins // 1440} days"
 
 
+def waiting_hours(store: Store, conv: Conversation, now: datetime) -> float:
+    """How long the silence has actually lasted, in the client's working days.
+
+    A quote answered on Friday evening is not 60 hours stale on Monday morning,
+    and flagging it as such is how a queue loses the reader's trust.
+    """
+    return settings.working_hours_between(
+        conv.last_message_at, now,
+        settings.weekend_days(store), settings.tzinfo(store))
+
+
 def conversation_view(store: Store, conv: Conversation, now: datetime) -> dict:
     """Shape the UI consumes. All copy rules are enforced here so no client can
     accidentally render a bare duration or claim a message was unseen."""
-    overdue = is_overdue(conv, now=now, stale_hours=config.STALE_HOURS)
+    hours = waiting_hours(store, conv, now)
+    overdue = conv.is_open and hours >= settings.stale_hours(store)
     name = store.contact_name(conv.wa_id)
     msgs = store.messages_for(conv.wa_id, limit=3)
 
@@ -131,11 +143,11 @@ def conversation_view(store: Store, conv: Conversation, now: datetime) -> dict:
         "is_open": conv.is_open,
         "status": status,
         # Always names the silent party — never a bare duration.
-        "wait_text": (f"{waiting_for(conv)} for {_elapsed(conv.last_message_at, now)}"
+        "wait_text": (f"{waiting_for(conv)} for {_elapsed_text(hours)}"
                       if conv.is_open else "tracking stopped"),
         "overdue": overdue,
-        "overdue_label": _elapsed(conv.last_message_at, now) if overdue else None,
-        "hours_silent": (now - conv.last_message_at).total_seconds() / 3600.0,
+        "overdue_label": _elapsed_text(hours) if overdue else None,
+        "hours_silent": hours,
         "quoted_amount": conv.quoted_amount,
         "last_message": msgs[-1].text if msgs else None,
         "messages": [
@@ -156,21 +168,33 @@ def summary(store: Store, now: datetime) -> dict:
     """The two money cards. Both carry their own denominator, always."""
     convs = store.all_conversations()
     open_convs = [c for c in convs if c.is_open]
-    overdue = [c for c in open_convs if is_overdue(c, now=now, stale_hours=config.STALE_HOURS)]
+    threshold = settings.stale_hours(store)
+    waits = {c.wa_id: waiting_hours(store, c, now) for c in open_convs}
+    overdue = [c for c in open_convs if waits[c.wa_id] >= threshold]
     overdue_amt = [c for c in overdue if c.quoted_amount]
     won = [c for c in convs if c.outcome is Outcome.WON]
     won_amt = [c for c in won if c.quoted_amount]
 
+    cur = settings.currency(store)
+    at_risk = sum(c.quoted_amount for c in overdue_amt)
+    won_total = sum(c.quoted_amount for c in won_amt)
+
     return {
-        "currency": config.CURRENCY,
-        "business_name": config.BUSINESS_NAME,
-        "at_risk_total": sum(c.quoted_amount for c in overdue_amt),
+        # The symbol and grouping travel with the number so the client's own
+        # convention is used - 10,00,000 in Karachi, 1,000,000 in Dubai.
+        "currency": cur["code"],
+        "currency_symbol": cur["symbol"],
+        "grouping": cur["grouping"],
+        "business_name": settings.business_name(store),
+        "stale_hours": threshold,
+        "at_risk_total": at_risk,
+        "at_risk_display": settings.format_amount(at_risk, cur),
         "at_risk_counted": len(overdue_amt),
         "at_risk_overdue": len(overdue),
         "at_risk_untracked": len(overdue) - len(overdue_amt),
-        "oldest_hours": max((now - c.last_message_at).total_seconds() / 3600.0
-                            for c in open_convs) if open_convs else 0,
-        "won_total": sum(c.quoted_amount for c in won_amt),
+        "oldest_hours": max(waits.values()) if waits else 0,
+        "won_total": won_total,
+        "won_display": settings.format_amount(won_total, cur),
         "won_counted": len(won_amt),
         "won_count": len(won),
         "counts": {

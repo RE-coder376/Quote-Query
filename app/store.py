@@ -38,6 +38,14 @@ CREATE TABLE IF NOT EXISTS account (
     created_at    TEXT NOT NULL
 );
 
+-- Per-client settings chosen at setup: currency, timezone, weekend, and how
+-- long is too long. Kept in the database rather than the environment because
+-- the client sets them, not us.
+CREATE TABLE IF NOT EXISTS settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT
+);
+
 -- One-time claim links. Hashed, so a leaked database does not hand over a live
 -- setup link, and single-use, so a forwarded link cannot be redeemed twice.
 CREATE TABLE IF NOT EXISTS setup_codes (
@@ -270,6 +278,20 @@ class Store:
     def set_password(self, wa_number: str, password_hash: str) -> None:
         self.conn.execute("UPDATE account SET password_hash = ? WHERE wa_number = ?",
                           (password_hash, wa_number))
+        self.conn.commit()
+
+    # ---- settings ----
+
+    def settings(self) -> dict:
+        return {r["key"]: r["value"]
+                for r in self.conn.execute("SELECT * FROM settings").fetchall()}
+
+    def save_settings(self, values: dict) -> None:
+        self.conn.executemany(
+            """INSERT INTO settings (key, value) VALUES (?, ?)
+               ON CONFLICT(key) DO UPDATE SET value = excluded.value""",
+            [(k, str(v)) for k, v in values.items()],
+        )
         self.conn.commit()
 
     # ---- one-time setup codes ----
