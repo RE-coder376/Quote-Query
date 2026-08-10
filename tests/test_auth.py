@@ -69,5 +69,8 @@ def test_webhook_stays_open_because_meta_cannot_log_in(client):
 
 
 def test_health_leaks_nothing(client):
+    """Counts and timestamps are fine — they are what the nightly check reads.
+    Anything identifying a customer is not."""
     body = client.get("/api/health").json()
-    assert body == {"ok": True}
+    assert set(body) == {"ok", "errors_recent", "messages", "last_message_at"}
+    assert body["ok"] is True

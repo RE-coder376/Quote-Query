@@ -58,6 +58,10 @@ SCRIPT = [
 
 BUSINESS = "97140000000"
 
+# Match whatever number this instance is configured for, or the guard in
+# service.ingest correctly discards everything this tool sends.
+PNID = config.PHONE_NUMBER_ID or "PNID"
+
 # Coexistence hands over ~6 months on connect. These are the threads a client
 # sees the moment they connect - their own quotes, already stale, with money
 # attached. (wa_id, name, [(days_ago, direction, text)])
@@ -87,7 +91,7 @@ def history_chunk(phase: int, chunk_order: int, progress: int,
     """The `history` webhook Meta sends after a Coexistence connect."""
     return {"field": "history", "value": {
         "messaging_product": "whatsapp",
-        "metadata": {"display_phone_number": BUSINESS, "phone_number_id": "PNID"},
+        "metadata": {"display_phone_number": BUSINESS, "phone_number_id": PNID},
         "history": [{
             "metadata": {"phase": phase, "chunk_order": chunk_order,
                          "progress": progress},
@@ -115,7 +119,7 @@ def state_sync(contacts: list[tuple[str, str]]) -> dict:
     """The Business app's address book - better names than WhatsApp profiles."""
     return {"field": "smb_app_state_sync", "value": {
         "messaging_product": "whatsapp",
-        "metadata": {"display_phone_number": BUSINESS, "phone_number_id": "PNID"},
+        "metadata": {"display_phone_number": BUSINESS, "phone_number_id": PNID},
         "state_sync": [
             {"type": "contact", "action": "add",
              "contact": {"full_name": name, "first_name": name.split()[0],
@@ -133,7 +137,7 @@ def envelope(changes: list[dict]) -> dict:
 def inbound(wa_id: str, mid: str, at: int, text: str) -> dict:
     return {"field": "messages", "value": {
         "messaging_product": "whatsapp",
-        "metadata": {"display_phone_number": "97140000000", "phone_number_id": "PNID"},
+        "metadata": {"display_phone_number": "97140000000", "phone_number_id": PNID},
         "messages": [{"from": wa_id, "id": mid, "timestamp": str(at),
                       "type": "text", "text": {"body": text}}]}}
 
@@ -142,7 +146,7 @@ def echo(wa_id: str, mid: str, at: int, text: str) -> dict:
     """What Coexistence sends when staff type in the WhatsApp Business app."""
     return {"field": "smb_message_echoes", "value": {
         "messaging_product": "whatsapp",
-        "metadata": {"display_phone_number": "97140000000", "phone_number_id": "PNID"},
+        "metadata": {"display_phone_number": "97140000000", "phone_number_id": PNID},
         "message_echoes": [{"to": wa_id, "id": mid, "timestamp": str(at),
                             "type": "text", "text": {"body": text}}]}}
 

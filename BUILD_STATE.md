@@ -57,10 +57,24 @@ Also done Aug 10 (second pass):
 Python as `C:\Users\...\Temp\x.db` from bash but `C:\tmp\x.db` from a Python
 literal. Two processes silently used different databases. Use Windows paths.
 
+Also done Aug 10 (third pass):
+- **Data deletion**: `DELETE /api/conversations/{wa_id}` + a rail control behind
+  a confirm; `modal run modal_app.py::erase --confirm ERASE` for a full wipe
+  that keeps the login. Backups still hold copies for 30 days — tell clients.
+- **Error alerting**: `ingest_errors` table, counts on `/api/health`, nightly
+  `health_check` cron that raises so Modal emails. Also catches total silence.
+- **`node --check` gate in `tools/build_dashboard.py`.** A `\n` typed into the
+  JS templates (which are Python strings) becomes a real newline, breaks the
+  literal and silently kills the entire dashboard script — the page renders and
+  never loads data. Python tests cannot see it. Caught in a browser, not by the
+  suite; now gated at build time and in `tests/test_ops.py`.
+- 80 tests green.
+
 Next step:
 - Tech Provider verification (Hamza — needs a Meta login and, likely, a
   registered entity). Blocks Embedded Signup, which blocks every real client.
-- Then: data deletion path, error alerting, Embedded Signup.
+- Embedded Signup is the only build item left, and it cannot be exercised
+  until Tech Provider lands.
 
 ### Working now
 

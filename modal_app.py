@@ -90,6 +90,91 @@ def web():
 
 
 @app.function(image=image, volumes={"/data": volume}, secrets=[secrets],
+              max_containers=1, timeout=120,
+              schedule=modal.Cron("40 3 * * *"))   # after the backup
+def health_check():
+    """Fail loudly if ingestion has broken.
+
+    The webhook answers 200 even on a parsing error, because a non-200 makes
+    Meta retry the whole batch — which means failures are silent by design.
+    This raises, and Modal emails on a failed scheduled run, so the alerting
+    channel costs nothing and needs no third party.
+
+    Two conditions:
+      * any recorded ingestion error in the window
+      * total silence in the window from an instance that has had traffic before,
+        which is what a dropped webhook subscription looks like from the inside
+    """
+    import os
+    from datetime import datetime, timedelta, timezone
+
+    os.environ.setdefault("QR_DB_PATH", "/data/quoteradar.db")
+    volume.reload()
+
+    from app import config
+    from app.store import Store
+
+    store = Store(os.environ["QR_DB_PATH"])
+    window = timedelta(hours=config.ALERT_WINDOW_HOURS)
+    now = datetime.now(timezone.utc)
+
+    errors = store.errors_since(now - window)
+    total = store.message_count()
+    last = store.last_message_at()
+    store.close()
+
+    problems = []
+    if errors:
+        kinds = ", ".join(sorted({e["kind"] for e in errors}))
+        problems.append(f"{len(errors)} ingestion error(s) in "
+                        f"{config.ALERT_WINDOW_HOURS}h: {kinds}. "
+                        f"Most recent: {errors[0]['detail'][:200]}")
+    if total and last and (now - last) > window:
+        hours = int((now - last).total_seconds() // 3600)
+        problems.append(f"No message in {hours}h despite {total} on record — "
+                        f"check both webhook subscriptions (app→object and WABA→app).")
+
+    if problems:
+        raise RuntimeError("QuoteRadar health check failed: " + " | ".join(problems))
+
+    print(f"healthy: {total} messages, last at {last}, no errors in "
+          f"{config.ALERT_WINDOW_HOURS}h")
+
+
+@app.function(image=image, volumes={"/data": volume}, secrets=[secrets],
+              max_containers=1, timeout=120)
+def erase(confirm: str = ""):
+    """Delete every customer record this instance holds.
+
+        modal run modal_app.py::erase --confirm ERASE
+
+    For an end-of-contract wipe or a client's deletion request. The login and
+    the sync history stay, so the dashboard still opens. Backups are NOT
+    touched — copies persist for up to 30 days, which is what the client has to
+    be told rather than quietly worked around.
+    """
+    import os
+
+    if confirm != "ERASE":
+        print("Refusing. Re-run with --confirm ERASE if you mean it.")
+        return
+
+    os.environ.setdefault("QR_DB_PATH", "/data/quoteradar.db")
+    volume.reload()
+
+    from app.store import Store
+
+    store = Store(os.environ["QR_DB_PATH"])
+    counts = store.erase_all()
+    store.close()
+    volume.commit()
+
+    print(f"erased {counts}")
+    print("Backups still hold copies for up to 30 days "
+          "(quoteradar-backups volume).")
+
+
+@app.function(image=image, volumes={"/data": volume}, secrets=[secrets],
               max_containers=1, timeout=60)
 def setup_link(reset: bool = False):
     """Mint the one-time link a new client uses to choose their own password.

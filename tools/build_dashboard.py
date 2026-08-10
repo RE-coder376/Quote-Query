@@ -108,6 +108,12 @@ BODY = """
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path d="M3 12a9 9 0 1 1 3 6.7"/><path d="M3 20v-6h6"/></svg>
             <span id="reopen-copy"></span>
           </p>
+          <p class="note">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M7 7l1 13h8l1-13"/></svg>
+            <span>Asked to be forgotten?
+              <button type="button" class="linkish" id="d-delete">Delete this customer's records</button>
+            </span>
+          </p>
         </div>
 
         <div class="note">
@@ -340,6 +346,23 @@ SCRIPT = """
     }).then(load);
   });
 
+  document.getElementById("d-delete").addEventListener("click", function () {
+    var c = selected();
+    if (!c) return;
+    // Deliberately blunt wording. This is not an archive and there is no undo.
+    // Escape line breaks twice in this file: it is a Python string first, and a
+    // real newline inside a JS literal takes the whole dashboard down.
+    if (!window.confirm(
+          "Permanently delete every message and record for " + c.name + "?\\n\\n" +
+          "This cannot be undone. If they message you again a new conversation " +
+          "starts from scratch. Backup copies are removed within 30 days."
+        )) return;
+    api("/api/conversations/" + c.wa_id, { method: "DELETE" }).then(function () {
+      selectedId = null;
+      return load();
+    });
+  });
+
   load();
   window.setInterval(load, 20000);   // new messages arrive by webhook; poll to reflect them
 })();
@@ -359,8 +382,40 @@ EXTRA_STYLE = """
     color: var(--fg-muted); font-size: var(--step--1);
   }
   .importing[hidden] { display: none; }
+  .linkish {
+    font: inherit; color: var(--accent); background: none; border: 0;
+    padding: 0; cursor: pointer; text-decoration: underline;
+  }
 </style>
 """
+
+
+def _check_script() -> None:
+    """Syntax-check the JS before writing it.
+
+    This file is a Python string, so a `\\n` typed as `\n` becomes a real
+    newline, breaks the JS literal, and takes the *whole* script down - the page
+    still renders, it simply never loads any data. That failure looks like a
+    server problem and is invisible to the Python tests. Skipped silently if
+    node is unavailable; a missing linter must not block a build.
+    """
+    import shutil
+    import subprocess
+    import tempfile
+
+    node = shutil.which("node")
+    if not node:
+        return
+
+    body = SCRIPT.split("<script>", 1)[-1].rsplit("</script>", 1)[0]
+    with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False,
+                                     encoding="utf-8") as fh:
+        fh.write(body)
+        path = fh.name
+
+    result = subprocess.run([node, "--check", path], capture_output=True, text=True)
+    if result.returncode != 0:
+        raise SystemExit("dashboard JS is broken:\n" + (result.stderr or "").strip())
 
 
 def main() -> None:
@@ -369,6 +424,7 @@ def main() -> None:
     if not style:
         raise SystemExit("no <style> block found in " + str(SOURCE))
 
+    _check_script()
     TARGET.parent.mkdir(parents=True, exist_ok=True)
     TARGET.write_text(
         "<!doctype html>\n<html lang=\"en\">\n<head>\n"

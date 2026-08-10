@@ -40,6 +40,11 @@ STALE_HOURS = int(_env("QR_STALE_HOURS", "24"))
 # Empty accepts everything: correct for local simulation, wrong in production.
 PHONE_NUMBER_ID = _env("QR_PHONE_NUMBER_ID", "")
 
+# How far back the nightly health check looks for ingestion failures, and how
+# long a total silence has to last before it is treated as a broken webhook
+# rather than a quiet week.
+ALERT_WINDOW_HOURS = int(_env("QR_ALERT_WINDOW_HOURS", "48"))
+
 # Display only. The product never converts or does arithmetic across currencies.
 CURRENCY = _env("QR_CURRENCY", "AED")
 

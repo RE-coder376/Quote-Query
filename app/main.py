@@ -7,7 +7,7 @@ wrong to a real client.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from html import escape as html_escape
 from pathlib import Path
 from typing import Optional
@@ -215,6 +215,12 @@ async def receive(request: Request):
     try:
         applied = service.ingest(store, await request.json())
     except Exception as exc:  # noqa: BLE001 - never let one bad payload cause retries
+        # Answering 200 is what stops a retry storm, and it is also what makes a
+        # parsing bug invisible. Record it so the nightly check can shout.
+        try:
+            store.record_error(type(exc).__name__, str(exc))
+        except Exception:  # noqa: BLE001 - a broken database must not 500 the webhook
+            pass
         return JSONResponse({"status": "error", "detail": str(exc)}, status_code=200)
 
     return {"status": "ok", "applied": applied}
@@ -292,10 +298,35 @@ def set_outcome(wa_id: str, body: OutcomeIn):
     return service.conversation_view(store, store.get_conversation(wa_id), now())
 
 
+@app.delete("/api/conversations/{wa_id}", dependencies=[Depends(require_auth)])
+def delete_conversation(wa_id: str):
+    """Erase one customer entirely — messages, state, name.
+
+    Real deletion, not archiving: Meta's Platform Terms and the UAE PDPL both
+    expect it, and a customer who asks to be forgotten is not asking to be
+    hidden. Note it can reappear if they message again, and that copies persist
+    in nightly backups for up to 30 days.
+    """
+    if store.get_conversation(wa_id) is None:
+        raise HTTPException(status_code=404, detail="unknown conversation")
+    return {"deleted": store.delete_contact(wa_id)}
+
+
 @app.get("/api/health")
 def health():
-    """Unauthenticated on purpose (uptime checks), so it leaks nothing."""
-    return {"ok": True}
+    """Unauthenticated on purpose (uptime checks), so it leaks nothing.
+
+    Counts and timestamps only — no names, no numbers, no message text. The
+    error count is what the nightly check reads.
+    """
+    since = now() - timedelta(hours=config.ALERT_WINDOW_HOURS)
+    last = store.last_message_at()
+    return {
+        "ok": True,
+        "errors_recent": len(store.errors_since(since)),
+        "messages": store.message_count(),
+        "last_message_at": last.isoformat() if last else None,
+    }
 
 
 # ---------- dashboard ----------

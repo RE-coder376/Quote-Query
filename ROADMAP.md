@@ -128,9 +128,21 @@ hour of work. Deferred until someone actually uses the product daily.
   Hardening added: `volume.reload()` at container start, so a container that
   mounted an old view cannot commit over newer writes. **Do not treat this as
   solved** — if it recurs, the nightly backup now bounds the loss to one day.
-- **Error alerting.** If ingestion breaks, nobody finds out until a client
-  notices missing conversations.
-- **Data deletion path.** Meta's Platform Terms and UAE PDPL both expect one.
+- ~~**Error alerting.**~~ **DONE 2026-08-10.** Ingestion failures are recorded
+  (`ingest_errors`) instead of vanishing behind the mandatory 200, surfaced as a
+  count on `/api/health`, and checked nightly at 03:40 UTC by
+  `modal_app.py::health_check`, which *raises* — Modal emails on a failed
+  scheduled run, so alerting costs nothing and needs no third party. It also
+  fires on total silence from an instance that has had traffic, which is what a
+  dropped webhook subscription looks like from the inside.
+
+- ~~**Data deletion path.**~~ **DONE 2026-08-10.** Per-customer:
+  `DELETE /api/conversations/{wa_id}`, wired to "Delete this customer's records"
+  in the dashboard rail behind a confirm. Whole instance:
+  `modal run modal_app.py::erase --confirm ERASE`, which keeps the login so the
+  client is not locked out. Real deletes with a `VACUUM`, not soft flags.
+  **Backups still hold copies for up to 30 days** — say that to a client rather
+  than working around it.
 
 ---
 

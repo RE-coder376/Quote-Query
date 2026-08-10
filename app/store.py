@@ -46,6 +46,16 @@ CREATE TABLE IF NOT EXISTS setup_codes (
     used_at    TEXT
 );
 
+-- Ingestion failures. The webhook must always answer 200 or Meta retries the
+-- whole batch forever, which means a parsing bug is invisible unless it is
+-- recorded here. Detail is kept short and never rendered to a client.
+CREATE TABLE IF NOT EXISTS ingest_errors (
+    at     TEXT NOT NULL,
+    kind   TEXT NOT NULL,
+    detail TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_ingest_errors_at ON ingest_errors(at);
+
 -- One row per Coexistence history phase (0: last day, 1: day 1-90, 2: day
 -- 90-180). Chunks arrive out of order, so progress is kept as a high-water mark
 -- rather than overwritten.
@@ -186,6 +196,63 @@ class Store:
             "SELECT * FROM conversations ORDER BY last_message_at DESC"
         ).fetchall()
         return [self._conv(r) for r in rows]
+
+    # ---- deletion ----
+    #
+    # Meta's Platform Terms and the UAE PDPL both expect a real deletion path,
+    # and a client asked to prove it will not accept "we could write one".
+
+    def delete_contact(self, wa_id: str) -> dict:
+        """Erase one customer completely: messages, conversation, name.
+
+        Not a soft delete and not an archive - the point is that the data is
+        gone. Returns what was removed so the caller can report it honestly.
+        """
+        counts = {
+            "messages": self.conn.execute(
+                "SELECT COUNT(*) FROM messages WHERE wa_id = ?", (wa_id,)).fetchone()[0],
+            "conversations": self.conn.execute(
+                "SELECT COUNT(*) FROM conversations WHERE wa_id = ?", (wa_id,)).fetchone()[0],
+        }
+        self.conn.execute("DELETE FROM messages WHERE wa_id = ?", (wa_id,))
+        self.conn.execute("DELETE FROM conversations WHERE wa_id = ?", (wa_id,))
+        self.conn.execute("DELETE FROM contacts WHERE wa_id = ?", (wa_id,))
+        self.conn.commit()
+        return counts
+
+    def erase_all(self) -> dict:
+        """Every customer record. The login and the sync history survive, so the
+        client is not locked out of an empty dashboard."""
+        counts = {t: self.conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
+                  for t in ("messages", "conversations", "contacts")}
+        for t in ("messages", "conversations", "contacts"):
+            self.conn.execute(f"DELETE FROM {t}")
+        self.conn.commit()
+        self.conn.execute("VACUUM")   # do not leave the rows readable on disk
+        return counts
+
+    # ---- ingestion errors ----
+
+    def record_error(self, kind: str, detail: str) -> None:
+        self.conn.execute(
+            "INSERT INTO ingest_errors (at, kind, detail) VALUES (?, ?, ?)",
+            (_iso(datetime.now(timezone.utc)), kind, (detail or "")[:500]),
+        )
+        self.conn.commit()
+
+    def errors_since(self, since: datetime) -> list[dict]:
+        rows = self.conn.execute(
+            "SELECT * FROM ingest_errors WHERE at >= ? ORDER BY at DESC LIMIT 50",
+            (_iso(since),),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def last_message_at(self) -> Optional[datetime]:
+        row = self.conn.execute("SELECT MAX(timestamp) AS t FROM messages").fetchone()
+        return _dt(row["t"]) if row and row["t"] else None
+
+    def message_count(self) -> int:
+        return self.conn.execute("SELECT COUNT(*) FROM messages").fetchone()[0]
 
     # ---- account ----
 
