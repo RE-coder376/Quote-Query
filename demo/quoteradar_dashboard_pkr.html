@@ -1,0 +1,1148 @@
+<title>QuoteRadar — quote queue (PKR)</title>
+
+<style>
+  :root {
+    --bg:          #EEF1F2;
+    --surface:     #FFFFFF;
+    --surface-2:   #E7ECEE;
+    --fg:          #141D22;
+    --fg-muted:    #566871;
+    --fg-faint:    #83959E;
+    --rule:        #D3DBDE;
+    --rule-strong: #B2BFC5;
+
+    --accent:      #2C5F7C;
+    --accent-soft: #E0EAF0;
+    --accent-fg:   #FFFFFF;
+
+    --urgent:      #B4402C;
+    --urgent-soft: #FBE7E2;
+    --warn:        #A96E14;
+    --warn-soft:   #F9EED8;
+    --ok:          #35745A;
+    --ok-soft:     #E2EFE8;
+
+    /* Direction owns colour: who has the ball is the first thing you should see. */
+    --owed:        #C2410C;   /* customer spoke last — you owe a reply */
+    --owed-soft:   #FCEBE0;
+    --parked:      #55707F;   /* you spoke last — the ball is with them */
+    --parked-soft: #E4EBEF;
+
+    --shadow-sm: 0 1px 2px rgba(20,29,34,.05);
+    --shadow:    0 1px 2px rgba(20,29,34,.05), 0 10px 28px -18px rgba(20,29,34,.28);
+
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+    --step--1: clamp(.76rem, .74rem + .10vw, .82rem);
+    --step-0:  clamp(.90rem, .87rem + .14vw, .97rem);
+    --step-1:  clamp(1.05rem, 1.00rem + .24vw, 1.20rem);
+    --step-2:  clamp(1.35rem, 1.22rem + .60vw, 1.75rem);
+    --step-3:  clamp(1.9rem, 1.5rem + 1.9vw, 2.9rem);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121A1E; --surface: #1A2429; --surface-2: #232F35;
+      --fg: #E6EDF0; --fg-muted: #9FB1B9; --fg-faint: #71858D;
+      --rule: #2D3B42; --rule-strong: #405259;
+      --accent: #74B0D0; --accent-soft: #1D323E; --accent-fg: #0B1317;
+      --urgent: #E4735C; --urgent-soft: #341914;
+      --warn: #DCA53C; --warn-soft: #2E2515;
+      --ok: #62BC8D; --ok-soft: #152A20;
+      --owed: #F08050; --owed-soft: #371D12;
+      --parked: #8FA9B6; --parked-soft: #202D34;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,.35);
+      --shadow: 0 1px 2px rgba(0,0,0,.35), 0 12px 30px -18px rgba(0,0,0,.8);
+    }
+  }
+
+  :root[data-theme="light"] {
+    --bg: #EEF1F2; --surface: #FFFFFF; --surface-2: #E7ECEE;
+    --fg: #141D22; --fg-muted: #566871; --fg-faint: #83959E;
+    --rule: #D3DBDE; --rule-strong: #B2BFC5;
+    --accent: #2C5F7C; --accent-soft: #E0EAF0; --accent-fg: #FFFFFF;
+    --urgent: #B4402C; --urgent-soft: #FBE7E2;
+    --warn: #A96E14; --warn-soft: #F9EED8;
+    --ok: #35745A; --ok-soft: #E2EFE8;
+    --owed: #C2410C; --owed-soft: #FCEBE0;
+    --parked: #55707F; --parked-soft: #E4EBEF;
+    --shadow-sm: 0 1px 2px rgba(20,29,34,.05);
+    --shadow: 0 1px 2px rgba(20,29,34,.05), 0 10px 28px -18px rgba(20,29,34,.28);
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #121A1E; --surface: #1A2429; --surface-2: #232F35;
+    --fg: #E6EDF0; --fg-muted: #9FB1B9; --fg-faint: #71858D;
+    --rule: #2D3B42; --rule-strong: #405259;
+    --accent: #74B0D0; --accent-soft: #1D323E; --accent-fg: #0B1317;
+    --urgent: #E4735C; --urgent-soft: #341914;
+    --warn: #DCA53C; --warn-soft: #2E2515;
+    --ok: #62BC8D; --ok-soft: #152A20;
+    --owed: #F08050; --owed-soft: #371D12;
+    --parked: #8FA9B6; --parked-soft: #202D34;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.35);
+    --shadow: 0 1px 2px rgba(0,0,0,.35), 0 12px 30px -18px rgba(0,0,0,.8);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font-family: var(--sans); font-size: var(--step-0); line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Numbers stay mono so columns line up. Everything a person reads is sans. */
+  .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  .shell {
+    max-width: 1200px; margin: 0 auto;
+    padding: clamp(1rem, .6rem + 1.4vw, 1.9rem) clamp(.85rem, .5rem + 1.4vw, 1.9rem) 4rem;
+    display: flex; flex-direction: column; gap: clamp(1rem, .7rem + 1vw, 1.5rem);
+  }
+
+  /* ---------- masthead ---------- */
+
+  .masthead {
+    display: flex; flex-wrap: wrap; align-items: center;
+    justify-content: space-between; gap: .6rem 1.25rem;
+  }
+
+  .wordmark {
+    display: flex; align-items: center; gap: .5rem;
+    font-size: var(--step-1); font-weight: 650; letter-spacing: -.015em; margin: 0;
+  }
+
+  .wordmark svg { display: block; color: var(--accent); }
+
+  .masthead-meta {
+    display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+    font-size: var(--step--1); color: var(--fg-muted);
+  }
+
+  .connected { display: inline-flex; align-items: center; gap: .4rem; }
+  .pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); animation: pulse 2.8s ease-out infinite; }
+
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 55%, transparent); }
+    70%  { box-shadow: 0 0 0 8px color-mix(in srgb, var(--ok) 0%, transparent); }
+    100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 0%, transparent); }
+  }
+
+  /* ---------- summary cards ---------- */
+
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: .75rem;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 1rem 1.1rem 1.05rem;
+    box-shadow: var(--shadow-sm);
+    display: flex; flex-direction: column; gap: .1rem;
+  }
+
+  .card-label { font-size: var(--step--1); color: var(--fg-muted); margin: 0; }
+
+  .card-value {
+    font-family: var(--mono); font-variant-numeric: tabular-nums;
+    font-size: var(--step-2); font-weight: 650;
+    letter-spacing: -.025em; line-height: 1.15; margin: .3rem 0 0;
+  }
+
+  .card-sub { font-size: var(--step--1); color: var(--fg-muted); margin: .25rem 0 0; text-wrap: pretty; }
+
+  /* the money card carries the weight — it is the one thing a screenshot must land */
+  .card-money {
+    grid-column: span 2;
+    border-color: var(--rule-strong);
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--urgent) 5%, var(--surface)) 0%, var(--surface) 70%);
+  }
+
+  .card-money .card-value { font-size: var(--step-3); }
+  .card-money .card-value .cur { font-size: .42em; color: var(--fg-muted); margin-right: .45em; letter-spacing: 0; }
+
+  /* The total never appears without the fraction it came from. */
+  .card-money .card-sub { color: var(--fg-muted); max-width: 46ch; }
+  .card-money .card-sub b { color: var(--fg); font-weight: 600; }
+
+  .card-won {
+    background: linear-gradient(180deg, color-mix(in srgb, var(--ok) 6%, var(--surface)) 0%, var(--surface) 70%);
+  }
+
+  .card-won .card-value { color: var(--ok); }
+
+  /* A running total that only ever grows, so a quiet month does not read as
+     an argument for cancelling. */
+  .card-cume {
+    margin: .45rem 0 0; padding-top: .45rem;
+    border-top: 1px solid var(--rule);
+    font-size: var(--step--1); color: var(--fg-muted);
+  }
+
+  .card-cume b { color: var(--fg); font-weight: 600; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  @media (max-width: 700px) {
+    .card-money { grid-column: span 1; }
+  }
+
+  /* ---------- toolbar ---------- */
+
+  .toolbar { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+
+  .filter {
+    font: inherit; font-size: var(--step--1);
+    color: var(--fg-muted); background: var(--surface);
+    border: 1px solid var(--rule); border-radius: 999px;
+    padding: .4rem .85rem; cursor: pointer;
+    transition: background .14s, color .14s, border-color .14s;
+  }
+
+  .filter:hover { border-color: var(--rule-strong); color: var(--fg); }
+  .filter[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); font-weight: 600; }
+  .filter-owed { border-color: color-mix(in srgb, var(--owed) 45%, var(--rule)); color: var(--owed); }
+  .filter-owed:hover { border-color: var(--owed); color: var(--owed); }
+  .filter-owed[aria-pressed="true"] { background: var(--owed); border-color: var(--owed); color: #fff; }
+  .filter:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .filter .count { opacity: .7; margin-left: .4em; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  .toolbar-spacer { flex: 1 1 auto; }
+  .threshold-note { font-size: var(--step--1); color: var(--fg-faint); }
+
+  /* ---------- workspace: the list is the hero ---------- */
+
+  .workspace {
+    display: grid; grid-template-columns: minmax(0, 1fr) 320px;
+    gap: clamp(.85rem, .5rem + 1.2vw, 1.25rem); align-items: start;
+  }
+
+  .queue {
+    background: var(--surface); border: 1px solid var(--rule);
+    border-radius: 6px; overflow: hidden; box-shadow: var(--shadow);
+  }
+
+  .queue-head {
+    display: grid; grid-template-columns: 4px minmax(0,1fr) 196px 112px;
+    gap: .85rem; align-items: center; padding: .6rem 1rem .6rem .85rem;
+    border-bottom: 1px solid var(--rule); background: var(--surface-2);
+    font-size: var(--step--1); color: var(--fg-muted);
+  }
+
+  .queue-head .ta-r { text-align: right; }
+
+  .row {
+    display: grid; grid-template-columns: 4px minmax(0,1fr) 196px 112px;
+    gap: .85rem; align-items: center; width: 100%; text-align: left;
+    background: transparent; border: 0; border-bottom: 1px solid var(--rule);
+    padding: .85rem 1rem .85rem .85rem; font: inherit; color: inherit;
+    cursor: pointer; position: relative; transition: background .13s;
+  }
+
+  .row:last-child { border-bottom: 0; }
+  .row:hover { background: var(--surface-2); }
+  .row[aria-current="true"] { background: var(--accent-soft); }
+  .row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+  .row-closed { opacity: .6; }
+  .row-closed:hover { opacity: .82; }
+
+  /* Stripe = who has the ball. Readable before a single word is. */
+  .stripe { width: 4px; height: 34px; border-radius: 2px; background: var(--rule-strong); }
+  .owed   .stripe { background: var(--owed); }
+  .parked .stripe { background: var(--parked); }
+  .done   .stripe { background: var(--rule-strong); }
+
+  .row-main { min-width: 0; }
+  .row-name { display: flex; align-items: center; gap: .45rem; flex-wrap: wrap; }
+
+  .row-name strong {
+    font-weight: 600; font-size: var(--step-0);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 26ch;
+  }
+
+  .row-preview {
+    margin: .2rem 0 0; color: var(--fg-muted); font-size: var(--step--1);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  .pill {
+    font-size: .68rem; font-weight: 600; padding: .13rem .45rem;
+    border-radius: 999px; white-space: nowrap;
+  }
+
+  .pill-urgent { background: var(--urgent-soft); color: var(--urgent); }
+  .pill-warn   { background: var(--warn-soft); color: var(--warn); }
+  .pill-repeat { background: var(--accent-soft); color: var(--accent); }
+  .pill-seen   { background: var(--surface-2); color: var(--fg-muted); }
+  .pill-won    { background: var(--ok-soft); color: var(--ok); }
+  .pill-lost   { background: var(--urgent-soft); color: var(--urgent); }
+  .pill-closed { background: var(--surface-2); color: var(--fg-muted); }
+
+  .row-status { display: flex; flex-direction: column; gap: .25rem; min-width: 0; }
+
+  .status-text {
+    font-size: var(--step--1); font-weight: 650;
+    display: inline-flex; align-items: center; gap: .35rem;
+  }
+
+  .owed   .status-text { color: var(--owed); }
+  .parked .status-text { color: var(--parked); }
+  .done   .status-text { color: var(--fg-muted); }
+
+  .status-text svg { flex: none; }
+
+  /* Urgency lives on the Overdue badge alone. Colouring the duration text too
+     turned every waiting-on-customer row red, which reads as blame when the
+     customer is the one who went quiet. */
+  .status-time { font-size: var(--step--1); color: var(--fg-muted); }
+  .status-time b { font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 600; color: var(--fg); }
+
+  .row-amount {
+    text-align: right; font-family: var(--mono);
+    font-variant-numeric: tabular-nums; font-size: var(--step-0); font-weight: 600;
+  }
+
+  .row-amount .untracked { color: var(--fg-faint); font-size: var(--step--1); font-weight: 400; font-family: var(--sans); }
+
+  .empty { padding: 2.4rem 1rem; text-align: center; color: var(--fg-faint); font-size: var(--step--1); }
+
+  /* ---------- detail rail ---------- */
+
+  .rail {
+    position: sticky; top: 1rem; background: var(--surface);
+    border: 1px solid var(--rule); border-radius: 6px;
+    box-shadow: var(--shadow); overflow: hidden;
+  }
+
+  .rail-head { padding: 1rem; border-bottom: 1px solid var(--rule); }
+  .rail-head h2 { margin: 0 0 .15rem; font-size: var(--step-1); font-weight: 650; letter-spacing: -.015em; text-wrap: balance; }
+  .rail-phone { font-family: var(--mono); font-size: var(--step--1); color: var(--fg-muted); }
+
+  .rail-body { padding: 1rem; display: flex; flex-direction: column; gap: .95rem; }
+
+  .facts { margin: 0; display: flex; flex-direction: column; gap: .45rem; }
+
+  .fact {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;
+    font-size: var(--step--1); padding-bottom: .45rem; border-bottom: 1px solid var(--rule);
+  }
+
+  .fact:last-child { border-bottom: 0; padding-bottom: 0; }
+  .fact dt { color: var(--fg-muted); margin: 0; }
+  .fact dd { margin: 0; font-weight: 600; text-align: right; }
+  .fact dd.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  /* Last three messages, no inner scrollbar — a scroll area inside a scrolling
+     page is the most annoying thing a panel can do. */
+  .thread {
+    display: flex; flex-direction: column; gap: .4rem; padding: .75rem;
+    background: var(--bg); border: 1px solid var(--rule); border-radius: 5px;
+  }
+
+  .thread-more { margin: 0; font-size: var(--step--1); color: var(--fg-faint); text-align: center; }
+
+  .bubble { font-size: var(--step--1); line-height: 1.45; padding: .45rem .6rem; border-radius: 9px; max-width: 86%; text-wrap: pretty; }
+  .bubble-in  { align-self: flex-start; background: var(--surface-2); border-bottom-left-radius: 2px; }
+  .bubble-out { align-self: flex-end; background: var(--accent-soft); border-bottom-right-radius: 2px; }
+  .bubble time { display: block; font-family: var(--mono); font-size: .66rem; color: var(--fg-faint); margin-top: .2rem; }
+
+  .actions { display: flex; flex-direction: column; gap: .5rem; }
+
+  .btn {
+    font: inherit; font-size: var(--step-0);
+    display: inline-flex; align-items: center; justify-content: center; gap: .45rem;
+    padding: .65rem .8rem; border-radius: 5px; border: 1px solid transparent;
+    cursor: pointer; text-decoration: none;
+    transition: filter .14s, background .14s, border-color .14s, color .14s;
+  }
+
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .btn-primary { background: var(--accent); color: var(--accent-fg); font-weight: 600; }
+  .btn-primary:hover { filter: brightness(1.08); }
+  .btn-ghost { background: transparent; color: var(--fg); border-color: var(--rule-strong); }
+  .btn-ghost:hover { background: var(--surface-2); }
+
+  .optional-note {
+    margin: -.1rem 0 0; font-size: var(--step--1);
+    color: var(--fg-faint); text-align: center; text-wrap: pretty;
+  }
+
+  .draft {
+    background: var(--bg); border: 1px solid var(--rule);
+    border-radius: 5px; padding: .7rem .8rem;
+    display: flex; flex-direction: column; gap: .35rem;
+  }
+
+  .draft-label { margin: 0; font-size: var(--step--1); color: var(--fg-muted); }
+
+  .draft-text {
+    margin: 0; font-size: var(--step--1); line-height: 1.5;
+    color: var(--fg); border-left: 2px solid var(--accent);
+    padding-left: .6rem; text-wrap: pretty;
+  }
+
+  .draft-foot { margin: 0; font-size: var(--step--1); color: var(--fg-faint); text-wrap: pretty; }
+  .draft-foot code { font-family: var(--mono); font-size: .94em; color: var(--accent); word-break: break-all; }
+
+  .closeout { border-top: 1px solid var(--rule); padding-top: .85rem; display: flex; flex-direction: column; gap: .55rem; }
+  .closeout > .card-label { font-weight: 600; color: var(--fg); }
+  .closeout-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: .4rem; }
+
+  .btn-sm {
+    font: inherit; font-size: var(--step--1);
+    padding: .5rem .3rem; border-radius: 5px;
+    border: 1px solid var(--rule-strong); background: transparent;
+    color: var(--fg-muted); cursor: pointer;
+    transition: background .14s, color .14s, border-color .14s;
+  }
+
+  .btn-sm:hover { color: var(--fg); border-color: var(--fg-muted); }
+  .btn-sm:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .btn-won:hover  { color: var(--ok); border-color: var(--ok); background: var(--ok-soft); }
+  .btn-lost:hover { color: var(--urgent); border-color: var(--urgent); background: var(--urgent-soft); }
+
+  .btn-sm[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); font-weight: 600; }
+  .btn-won[aria-pressed="true"]  { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .btn-lost[aria-pressed="true"] { background: var(--urgent); border-color: var(--urgent); color: #fff; }
+
+  .note {
+    display: flex; align-items: flex-start; gap: .5rem;
+    font-size: var(--step--1); color: var(--fg-muted);
+    background: var(--bg); border: 1px solid var(--rule);
+    border-radius: 5px; padding: .6rem .7rem; margin: 0; text-wrap: pretty;
+  }
+
+  .note svg { flex: none; margin-top: .15rem; color: var(--fg-faint); }
+  .note b { color: var(--fg); font-weight: 600; }
+
+  /* ---------- demoted timeline ---------- */
+
+  .timeline {
+    background: var(--surface); border: 1px solid var(--rule);
+    border-radius: 6px; box-shadow: var(--shadow-sm); overflow: hidden;
+  }
+
+  .timeline > summary {
+    padding: .8rem 1rem; cursor: pointer; list-style: none;
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    font-size: var(--step--1); color: var(--fg-muted);
+  }
+
+  .timeline > summary::-webkit-details-marker { display: none; }
+  .timeline > summary:hover { background: var(--surface-2); }
+  .timeline > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .timeline > summary b { color: var(--fg); font-weight: 600; }
+
+  .chev { transition: transform .18s; color: var(--fg-faint); }
+  .timeline[open] .chev { transform: rotate(180deg); }
+
+  .timeline-body { padding: .5rem 1rem 1.1rem; border-top: 1px solid var(--rule); }
+
+  .field { width: 100%; height: auto; display: block; overflow: visible; margin-top: .6rem; }
+
+  .axis-line { stroke: var(--rule-strong); stroke-width: 1; }
+  .tick-line { stroke: var(--rule); stroke-width: 1; stroke-dasharray: 2 4; }
+  .threshold-line { stroke: var(--warn); stroke-width: 1; stroke-dasharray: 3 3; opacity: .8; }
+  .axis-text, .lane-text { font-family: var(--mono); font-size: 11px; fill: var(--fg-faint); }
+  .lane-text { font-family: var(--sans); }
+  .threshold-text { fill: var(--warn); }
+
+  .dot { cursor: pointer; }
+  .dot circle { transition: opacity .18s; }
+  .disc { opacity: .85; }
+  .ring { fill: none; stroke-width: 1.5; stroke-dasharray: 3 3; }
+  .halo { fill: none; stroke: var(--fg); stroke-width: 1.5; opacity: 0; transition: opacity .18s; }
+  .dot:focus-visible { outline: none; }
+  .dot:focus-visible .halo, .dot[data-selected="true"] .halo { opacity: .75; }
+  .stem { stroke-width: 1; opacity: .3; }
+
+  .dot-label { font-family: var(--sans); font-size: 10.5px; fill: var(--fg-muted); opacity: 0; transition: opacity .18s; pointer-events: none; }
+  .dot:hover .dot-label, .dot[data-selected="true"] .dot-label { opacity: 1; }
+
+  .d-owed   { color: var(--owed); }
+  .d-parked { color: var(--parked); }
+
+  /* ---------- footer ---------- */
+
+  .legend {
+    border-top: 1px solid var(--rule); padding-top: 1.1rem;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem 1.6rem;
+  }
+
+  .legend h3 { margin: 0; font-size: var(--step--1); font-weight: 650; }
+  .legend p { margin: .25rem 0 0; font-size: var(--step--1); color: var(--fg-muted); text-wrap: pretty; }
+  .legend b { color: var(--fg); font-weight: 600; }
+
+  /* ---------- responsive ---------- */
+
+  @media (max-width: 900px) {
+    .workspace { grid-template-columns: minmax(0, 1fr); }
+    .rail { position: static; }
+  }
+
+  @media (max-width: 640px) {
+    .queue-head { display: none; }
+
+    .row {
+      grid-template-columns: 4px minmax(0, 1fr);
+      grid-template-areas: "stripe main" ".  status" ".  amount";
+      row-gap: .5rem; align-items: start;
+      padding: .95rem .9rem .95rem .8rem;
+    }
+
+    .row .stripe { grid-area: stripe; height: 100%; min-height: 44px; }
+    .row .row-main { grid-area: main; }
+    .row .row-status { grid-area: status; }
+    .row .row-amount { grid-area: amount; text-align: left; }
+    .row-name strong { max-width: 100%; white-space: normal; }
+    .row-preview { white-space: normal; }
+
+    /* chips scroll sideways rather than stacking into three rows */
+    .toolbar {
+      flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
+      margin-inline: calc(-1 * clamp(.85rem, .5rem + 1.4vw, 1.9rem));
+      padding-inline: clamp(.85rem, .5rem + 1.4vw, 1.9rem);
+    }
+
+    .toolbar::-webkit-scrollbar { display: none; }
+    .filter { flex: none; }
+    .toolbar-spacer, .threshold-note { display: none; }
+
+    .closeout-row { grid-template-columns: 1fr; }
+    .btn-sm { padding: .6rem .5rem; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+  }
+</style>
+
+<div class="shell">
+
+  <header class="masthead">
+    <h1 class="wordmark">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+        <circle cx="12" cy="12" r="9.2" opacity=".35"/>
+        <circle cx="12" cy="12" r="5" opacity=".6"/>
+        <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/>
+        <path d="M12 12 L19 6.4"/>
+      </svg>
+      QuoteRadar
+    </h1>
+    <div class="masthead-meta">
+      <span class="connected"><span class="pulse" aria-hidden="true"></span> Elite Interiors — Lahore</span>
+      <span>Sunday 9 August, 8:42 am</span>
+    </div>
+  </header>
+
+  <section class="cards" aria-label="Summary">
+    <div class="card card-money">
+      <p class="card-label">Money stuck in quiet quotes</p>
+      <p class="card-value"><span class="cur">PKR</span><span id="figure-val">0</span></p>
+      <!-- The total never appears without the fraction it came from. -->
+      <p class="card-sub" id="denominator"></p>
+    </div>
+    <div class="card card-won">
+      <p class="card-label">Won this month</p>
+      <p class="card-value" id="c-won">—</p>
+      <!-- Bounded, not causal: never claims QuoteRadar earned it, never implies
+           it is all the business earned. Same denominator rule as the card above. -->
+      <p class="card-sub" id="c-won-sub"></p>
+      <p class="card-cume" id="c-won-cume"></p>
+    </div>
+  </section>
+
+  <div class="toolbar" role="group" aria-label="Filter the list">
+    <button class="filter" type="button" data-filter="all" aria-pressed="true">All open <span class="count" data-count="all">0</span></button>
+    <button class="filter filter-owed" type="button" data-filter="in" aria-pressed="false">You need to reply <span class="count" data-count="in">0</span></button>
+    <button class="filter" type="button" data-filter="out" aria-pressed="false">Waiting on customer <span class="count" data-count="out">0</span></button>
+    <button class="filter" type="button" data-filter="stale" aria-pressed="false">Overdue <span class="count" data-count="stale">0</span></button>
+    <button class="filter" type="button" data-filter="closed" aria-pressed="false">Closed <span class="count" data-count="closed">0</span></button>
+    <span class="toolbar-spacer"></span>
+    <span class="threshold-note">Overdue after 24 hours</span>
+  </div>
+
+  <div class="workspace">
+
+    <section class="queue" aria-label="Quote list">
+      <div class="queue-head" aria-hidden="true">
+        <span></span><span>Customer</span><span>Status</span><span class="ta-r">Quoted</span>
+      </div>
+      <div id="rows"></div>
+    </section>
+
+    <aside class="rail" aria-live="polite">
+      <div class="rail-head">
+        <h2 id="d-name">—</h2>
+        <span class="rail-phone" id="d-phone">—</span>
+      </div>
+      <div class="rail-body">
+        <dl class="facts">
+          <div class="fact"><dt>Status</dt><dd id="d-state">—</dd></div>
+          <div class="fact"><dt id="d-last-label">Waiting</dt><dd class="mono" id="d-last">—</dd></div>
+          <div class="fact"><dt>Quoted amount</dt><dd class="mono" id="d-amount">—</dd></div>
+          <div class="fact"><dt>Quote sent</dt><dd id="d-quoted">—</dd></div>
+          <div class="fact"><dt>History</dt><dd id="d-history">—</dd></div>
+        </dl>
+
+        <div class="thread" id="d-thread"></div>
+
+        <div class="actions">
+          <a class="btn btn-primary" id="d-nudge" href="#" target="_blank" rel="noopener">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+              <path d="M4 12h13M12 5l7 7-7 7"/>
+            </svg>
+            Open this chat in WhatsApp
+          </a>
+          <button class="btn btn-ghost" type="button" id="d-mark">Add quote amount</button>
+          <p class="optional-note">Optional. The queue works exactly the same without any amounts — they only feed the money total.</p>
+        </div>
+
+        <div class="draft">
+          <p class="draft-label">Opens their chat with this ready to edit</p>
+          <p class="draft-text" id="d-draft">—</p>
+          <p class="draft-foot">Opens <code id="d-link">wa.me/…</code> — your WhatsApp, your thumb on send. Nothing leaves QuoteRadar.</p>
+        </div>
+
+        <div class="closeout">
+          <p class="card-label">Close this quote</p>
+          <div class="closeout-row">
+            <button class="btn-sm btn-won"  type="button" data-status="won"    aria-pressed="false">Won</button>
+            <button class="btn-sm btn-lost" type="button" data-status="lost"   aria-pressed="false">Lost</button>
+            <button class="btn-sm"          type="button" data-status="closed" aria-pressed="false">No deal</button>
+          </div>
+          <p class="note">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+              <path d="M3 12a9 9 0 1 1 3 6.7"/><path d="M3 20v-6h6"/>
+            </svg>
+            <span id="reopen-copy"></span>
+          </p>
+        </div>
+
+        <div class="note">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+            <rect x="4" y="10.5" width="16" height="10" rx="2"/>
+            <path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/>
+          </svg>
+          <span><b>There is no reply box, on purpose.</b> Your team keeps answering in the WhatsApp Business app they already use. QuoteRadar only watches which chats went quiet.</span>
+        </div>
+      </div>
+    </aside>
+
+  </div>
+
+  <details class="timeline">
+    <summary>
+      <span>See all open quotes on a <b>timeline</b> — how far each one has drifted</span>
+      <svg class="chev" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+    </summary>
+    <div class="timeline-body">
+      <svg class="field" id="field" viewBox="0 0 1000 260" role="img"
+           aria-label="Every open quote plotted by how long it has been sitting. Points above the line are ones your team has not answered; points below are ones the customer has not answered. Circle size shows the amount quoted; dashed outlines are quotes with no amount recorded."></svg>
+    </div>
+  </details>
+
+  <footer class="legend">
+    <div>
+      <h3>How a chat gets flagged</h3>
+      <p>Two things only: <b>who spoke last</b>, and <b>how long ago</b>. No keywords, no AI reading your messages, nothing to set up or tag.</p>
+      <p><span style="color:var(--owed);font-weight:600">Orange</span> means the customer spoke last and you owe a reply. <span style="color:var(--parked);font-weight:600">Slate</span> means you spoke last and it's their turn.</p>
+    </div>
+    <div>
+      <h3>About “seen”</h3>
+      <p>A <b>seen</b> mark shows only when WhatsApp confirms one. If it's missing, we show nothing — a missing tick is not proof the customer didn't read it.</p>
+    </div>
+    <div>
+      <h3>About the totals</h3>
+      <p>Amounts are optional, so every total says <b>how many quotes it came from</b>. A partial figure that admits it beats a confident one that's wrong.</p>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var THRESHOLD_H = 24;
+  var SPAN_H = 14 * 24;
+
+  // `hours` = time since the last message, whoever sent it.
+  // `dir` = who spoke last: "in" = the customer, so your team owes a reply.
+  var DATA = [
+    { id:"cedarline", name:"Al-Karam Interiors", phone:"+92 300 244 8130", wa:"923002448130",
+      dir:"out", hours:98, amount:68000, quoted:"31 July", repeat:true, seen:false, lane:0, status:"open",
+      preview:"Sent the revised wardrobe drawings + BOQ for DHA villa 12.",
+      thread:[
+        { s:"in",  t:"Can you re-quote with the walnut veneer instead of oak?", w:"30 Jul, 2:02 pm" },
+        { s:"out", t:"Sure — revised drawings and BOQ attached. PKR 68,000 including install.", w:"31 Jul, 9:15 am" }
+      ] },
+    { id:"marina", name:"Gulberg Facility Services", phone:"+92 321 601 7742", wa:"923216017742",
+      dir:"in", hours:6, amount:null, quoted:null, repeat:false, seen:false, lane:1, status:"open",
+      preview:"We need a price for re-laminating 40 corridor doors.",
+      thread:[ { s:"in", t:"Morning — we need a price for re-laminating 40 corridor doors, tower 2.", w:"Today, 2:40 am" } ] },
+    { id:"zahra", name:"Gulberg Office Furnishing", phone:"+92 333 883 0914", wa:"923338830914",
+      dir:"out", hours:214, amount:110000, quoted:"25 July", repeat:false, seen:true, lane:0, status:"open",
+      preview:"Full quote for the Gulberg showroom fit-out.",
+      thread:[
+        { s:"in",  t:"Please quote the full showroom fit-out — 240 sqm, handover by Oct.", w:"24 Jul, 11:20 am" },
+        { s:"out", t:"Attached: full scope + PKR 110,000. Happy to walk through it.", w:"25 Jul, 4:45 pm" }
+      ] },
+    { id:"bluewaters", name:"Emporium Retail — Shop 214", phone:"+92 301 119 6620", wa:"923011196620",
+      dir:"in", hours:53, amount:null, quoted:null, repeat:false, seen:false, lane:0, status:"open",
+      preview:"Any update on the counter joinery price?",
+      thread:[
+        { s:"out", t:"Noted — will get the counter joinery costed this week.", w:"4 Aug, 10:05 am" },
+        { s:"in",  t:"Any update on the counter joinery price? Landlord is chasing us.", w:"6 Aug, 7:30 pm" }
+      ] },
+    { id:"tariq", name:"Bilal — main contractor", phone:"+92 345 770 2288", wa:"923457702288",
+      dir:"out", hours:30, amount:45000, quoted:"7 August", repeat:true, seen:true, lane:1, status:"open",
+      preview:"Quoted PKR 45,000 for the reception desk build.",
+      thread:[
+        { s:"in",  t:"Send me your number for the reception desk, solid surface top.", w:"7 Aug, 8:12 am" },
+        { s:"out", t:"PKR 45,000, 3 weeks from approval of shop drawings.", w:"7 Aug, 8:50 pm" }
+      ] },
+    { id:"sadaf", name:"Sadaf Kitchens", phone:"+92 322 302 4471", wa:"923223024471",
+      dir:"in", hours:0.4, amount:null, quoted:null, repeat:false, seen:false, lane:2, status:"open",
+      preview:"Salam, are you free for a site visit Tuesday?",
+      thread:[ { s:"in", t:"Salam, are you free for a site visit Tuesday? Model Town villa.", w:"Today, 8:18 am" } ] },
+    { id:"jlt", name:"Blue Area Office Refurb", phone:"+92 336 445 9037", wa:"923364459037",
+      dir:"out", hours:74, amount:null, quoted:null, repeat:false, seen:false, lane:2, status:"open",
+      preview:"Shared the partition options — no amount recorded yet.",
+      thread:[
+        { s:"in",  t:"What are our options for the glass partitions?", w:"5 Aug, 1:44 pm" },
+        { s:"out", t:"Three options attached — single glazed, double, and acoustic.", w:"6 Aug, 7:10 am" }
+      ] },
+    { id:"karama", name:"Bahria Dental — Dr. Faisal", phone:"+92 302 668 1195", wa:"923026681195",
+      dir:"out", hours:292, amount:27000, quoted:"21 July", repeat:true, seen:false, lane:1, status:"open",
+      preview:"Quoted 6 storage cabinets for the treatment rooms — no response since.",
+      thread:[
+        { s:"in",  t:"Can you price 6 storage cabinets for the treatment rooms?", w:"21 Jul, 9:30 am" },
+        { s:"out", t:"PKR 27,000 supplied and fitted, 2 weeks from approval.", w:"21 Jul, 3:05 pm" }
+      ] },
+    { id:"villa42", name:"DHA Phase 5 — Mrs. Ayesha", phone:"+92 331 208 7754", wa:"923312087754",
+      dir:"in", hours:4, amount:null, quoted:null, repeat:false, seen:false, lane:0, status:"open",
+      preview:"Sending photos of the damaged pantry units now.",
+      thread:[ { s:"in", t:"Sending photos of the damaged pantry units now — can you fix or replace?", w:"Today, 4:30 am" } ] },
+    { id:"barsha", name:"Clifton Clinic Reception", phone:"+92 334 447 0031", wa:"923344470031",
+      dir:"out", hours:410, amount:95000, quoted:"12 July", repeat:false, seen:true, lane:2, status:"won",
+      preview:"Reception counter + waiting-area joinery.",
+      thread:[
+        { s:"in",  t:"We'd like to proceed with the reception counter quote.", w:"22 Jul, 9:02 am" },
+        { s:"out", t:"Excellent — I'll issue the LPO paperwork today.", w:"22 Jul, 6:40 pm" }
+      ] },
+    { id:"marine", name:"Johar Town Office", phone:"+92 321 914 3306", wa:"923219143306",
+      dir:"out", hours:520, amount:55000, quoted:"4 July", repeat:false, seen:true, lane:0, status:"won",
+      preview:"Meeting-room table + credenza.",
+      thread:[
+        { s:"in",  t:"Go ahead with the table and credenza, please.", w:"18 Jul, 10:15 am" },
+        { s:"out", t:"Noted — production starts Monday.", w:"18 Jul, 12:02 pm" }
+      ] },
+    { id:"mirdif", name:"Askari Villa — Mrs. Khan", phone:"+92 300 337 8891", wa:"923003378891",
+      dir:"out", hours:610, amount:30000, quoted:"9 July", repeat:true, seen:false, lane:1, status:"won",
+      preview:"Walk-in wardrobe, master bedroom.",
+      thread:[
+        { s:"in",  t:"We're happy with the design. Please proceed.", w:"14 Jul, 4:20 pm" },
+        { s:"out", t:"Wonderful — I'll send the schedule this week.", w:"14 Jul, 7:05 pm" }
+      ] },
+    { id:"jebelali", name:"Sundar Estate Warehouse Office", phone:"+92 334 660 4417", wa:"923346604417",
+      dir:"out", hours:702, amount:null, quoted:null, repeat:false, seen:false, lane:2, status:"won",
+      preview:"Mezzanine office partitions — no amount recorded.",
+      thread:[
+        { s:"in",  t:"Approved, go ahead with the partitions.", w:"11 Jul, 8:40 am" },
+        { s:"out", t:"Thanks — team mobilises next week.", w:"11 Jul, 9:15 am" }
+      ] }
+  ];
+
+  var rowsEl  = document.getElementById("rows");
+  var fieldEl = document.getElementById("field");
+  var denomEl = document.getElementById("denominator");
+  var filterBtns = Array.prototype.slice.call(document.querySelectorAll(".filter"));
+  var statusBtns = Array.prototype.slice.call(document.querySelectorAll("[data-status]"));
+
+  var activeFilter = "all";
+  var selectedId = "zahra";
+  var figureShown = 0;
+
+  function isOpen(d)  { return d.status === "open"; }
+  function isStale(d) { return isOpen(d) && d.hours >= THRESHOLD_H; }
+
+  function severity(d) {
+    if (!isOpen(d)) return "done";
+    if (d.hours < THRESHOLD_H) return "ok";
+    return d.hours >= THRESHOLD_H * 3 ? "urgent" : "warn";
+  }
+
+  // Plain language. "Awaiting reply" never says whose.
+  function statusText(d) {
+    if (d.status === "won")    return "Won";
+    if (d.status === "lost")   return "Lost";
+    if (d.status === "closed") return "No deal";
+    return d.dir === "in" ? "You need to reply" : "Waiting on customer";
+  }
+
+  function elapsedText(h) {
+    if (h < 1) return Math.round(h * 60) + " min";
+    if (h < 48) return Math.round(h) + " hours";
+    return Math.round(h / 24) + " days";
+  }
+
+  function elapsedShort(h) {
+    if (h < 1) return Math.round(h * 60) + "m";
+    if (h < 48) return Math.round(h) + "h";
+    return Math.round(h / 24) + "d";
+  }
+
+  // Colour says who has the ball; the icon says it again for anyone who
+  // can't rely on colour alone.
+  function dirIcon(d) {
+    if (!isOpen(d)) {
+      return '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+    }
+    return d.dir === "in"
+      ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M19 7 6 20M6 20h9M6 20v-9"/></svg>'
+      : '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 17 18 4M18 4H9M18 4v9"/></svg>';
+  }
+
+  // Never say "no reply for" — it never says whose reply is missing.
+  // Name the person who is silent, every time.
+  function waitText(d) {
+    if (!isOpen(d)) return "tracking stopped";
+    return d.dir === "in"
+      ? "No reply from you for <b>" + elapsedText(d.hours) + "</b>"
+      : "No customer reply for <b>" + elapsedText(d.hours) + "</b>";
+  }
+
+  function waitLabel(d) {
+    if (!isOpen(d)) return "Waiting";
+    return d.dir === "in" ? "No reply from you for" : "No customer reply for";
+  }
+
+  function money(n) { return n.toLocaleString("en-US"); }
+
+  // ---------- computed summary ----------
+
+  // Carried over from before the account started using QuoteRadar; a running
+  // total needs history the demo data does not have.
+  var CUME_BEFORE_THIS_MONTH = 545000;
+
+  function stats() {
+    var open = DATA.filter(isOpen);
+    var stale = open.filter(isStale);
+    var withAmt = stale.filter(function (d) { return d.amount; });
+    var oldest = open.slice().sort(function (a, b) { return b.hours - a.hours; })[0];
+    var won = DATA.filter(function (d) { return d.status === "won"; });
+    var wonWithAmt = won.filter(function (d) { return d.amount; });
+    var wonTotal = wonWithAmt.reduce(function (s, d) { return s + d.amount; }, 0);
+    return {
+      won: won.length,
+      wonCounted: wonWithAmt.length,
+      wonTotal: wonTotal,
+      wonCume: CUME_BEFORE_THIS_MONTH + wonTotal,
+      open: open.length,
+      stale: stale.length,
+      awaitingUs: open.filter(function (d) { return d.dir === "in"; }).length,
+      awaitingThem: open.filter(function (d) { return d.dir === "out"; }).length,
+      closed: DATA.length - open.length,
+      atRisk: withAmt.reduce(function (s, d) { return s + d.amount; }, 0),
+      counted: withAmt.length,
+      untracked: stale.length - withAmt.length,
+      oldest: oldest
+    };
+  }
+
+  function renderStats() {
+    var s = stats();
+    animateFigure(s.atRisk);
+
+    denomEl.innerHTML = s.stale === 0
+      ? "Nothing is overdue. Every open quote has had a reply within 24 hours."
+      : "From <b>" + s.counted + " of the " + s.stale + "</b> quotes with no reply for over 24 hours." +
+        (s.untracked > 0
+          ? " <b>" + (s.untracked === 1 ? "One has" : s.untracked + " have") + " no amount recorded</b>, so the real figure is higher."
+          : " All of them have an amount recorded.") +
+        (s.oldest ? " The oldest has been sitting <b>" + elapsedText(s.oldest.hours) + "</b>." : "");
+
+    var wonEl = document.getElementById("c-won");
+    if (s.wonCounted === 0) {
+      // An empty value card reads as "this isn't working" — ask for the first one.
+      wonEl.textContent = "—";
+      document.getElementById("c-won-sub").textContent =
+        "Nothing marked won yet. Close a quote as Won to start the record.";
+    } else {
+      wonEl.textContent = "PKR " + money(s.wonTotal);
+      document.getElementById("c-won-sub").innerHTML =
+        "from <b>" + s.wonCounted + " of the " + s.won + "</b> quotes you closed here" +
+        (s.won - s.wonCounted > 0
+          ? ", " + (s.won - s.wonCounted) + " with no amount recorded"
+          : "") + ".";
+    }
+    document.getElementById("c-won-cume").innerHTML =
+      "<b>PKR " + money(s.wonCume) + "</b> since March";
+
+    var counts = { all: s.open, stale: s.stale, in: s.awaitingUs, out: s.awaitingThem, closed: s.closed };
+    Object.keys(counts).forEach(function (k) {
+      var el = document.querySelector('[data-count="' + k + '"]');
+      if (el) el.textContent = counts[k];
+    });
+  }
+
+  function animateFigure(target) {
+    var el = document.getElementById("figure-val");
+    var from = figureShown;
+    figureShown = target;
+
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      el.textContent = money(target);
+      return;
+    }
+
+    var start = null, dur = from === 0 ? 900 : 400;
+    function step(ts) {
+      if (start === null) start = ts;
+      var p = Math.min((ts - start) / dur, 1);
+      var eased = 1 - Math.pow(1 - p, 3);
+      el.textContent = money(Math.round(from + (target - from) * eased));
+      if (p < 1) window.requestAnimationFrame(step);
+    }
+    window.requestAnimationFrame(step);
+  }
+
+  // ---------- the list (hero) ----------
+
+  function matches(d) {
+    if (activeFilter === "closed") return !isOpen(d);
+    if (!isOpen(d)) return false;
+    if (activeFilter === "all") return true;
+    if (activeFilter === "stale") return isStale(d);
+    return d.dir === activeFilter;
+  }
+
+  function renderRows() {
+    // Most urgent first: overdue and owed by us, then longest wait.
+    var list = DATA.filter(matches).sort(function (a, b) {
+      if (isOpen(a) !== isOpen(b)) return isOpen(a) ? -1 : 1;
+      var au = a.dir === "in" && isStale(a), bu = b.dir === "in" && isStale(b);
+      if (au !== bu) return au ? -1 : 1;
+      return b.hours - a.hours;
+    });
+
+    if (!list.length) {
+      rowsEl.innerHTML = '<p class="empty">Nothing here right now.</p>';
+      return;
+    }
+
+    rowsEl.innerHTML = list.map(function (d) {
+      var sev = severity(d);
+      var dirClass = !isOpen(d) ? "done" : (d.dir === "in" ? "owed" : "parked");
+      var lateClass = "";
+
+      var pills = "";
+      if (isStale(d)) {
+        pills += '<span class="pill pill-' + (sev === "urgent" ? "urgent" : "warn") + '">Overdue ' +
+                 elapsedShort(d.hours) + '</span>';
+      }
+      if (d.repeat) pills += '<span class="pill pill-repeat">Asked before</span>';
+      // "Seen" shows only on a confirmed receipt. Absence shows nothing.
+      if (d.seen) pills += '<span class="pill pill-seen">Seen</span>';
+      if (d.status === "won")    pills += '<span class="pill pill-won">Won</span>';
+      if (d.status === "lost")   pills += '<span class="pill pill-lost">Lost</span>';
+      if (d.status === "closed") pills += '<span class="pill pill-closed">No deal</span>';
+
+      return '' +
+        '<button class="row ' + dirClass + lateClass + (isOpen(d) ? "" : " row-closed") + '" type="button" data-id="' + d.id + '" aria-current="' + (d.id === selectedId) + '">' +
+          '<span class="stripe" aria-hidden="true"></span>' +
+          '<span class="row-main">' +
+            '<span class="row-name"><strong>' + d.name + '</strong>' + pills + '</span>' +
+            '<span class="row-preview">' + d.preview + '</span>' +
+          '</span>' +
+          '<span class="row-status">' +
+            '<span class="status-text">' + dirIcon(d) + statusText(d) + '</span>' +
+            '<span class="status-time">' + waitText(d) + '</span>' +
+          '</span>' +
+          '<span class="row-amount">' +
+            (d.amount ? "PKR " + money(d.amount) : '<span class="untracked">No amount recorded</span>') +
+          '</span>' +
+        '</button>';
+    }).join("");
+  }
+
+  function renderDetail() {
+    var d = DATA.filter(function (x) { return x.id === selectedId; })[0];
+    if (!d) return;
+
+    document.getElementById("d-name").textContent = d.name;
+    document.getElementById("d-phone").textContent = d.phone;
+    document.getElementById("d-state").textContent = statusText(d) + (isStale(d) ? " · overdue" : "");
+    document.getElementById("d-last-label").textContent = waitLabel(d);
+    document.getElementById("d-last").textContent = isOpen(d) ? elapsedText(d.hours) : "stopped";
+    // Won reuses the quoted amount. There is deliberately no "paid" field.
+    document.getElementById("d-amount").innerHTML = d.amount
+      ? "PKR " + money(d.amount)
+      : '<span style="color:var(--fg-faint);font-weight:400">Not recorded</span>';
+    document.getElementById("d-quoted").textContent = d.quoted || "Not quoted yet";
+    document.getElementById("d-mark").textContent = d.amount ? "Edit quote amount" : "Add quote amount";
+    document.getElementById("d-history").textContent = d.repeat ? "Asked before" : "First enquiry";
+
+    var shown = d.thread.slice(-3);
+    var hidden = d.thread.length - shown.length;
+    document.getElementById("d-thread").innerHTML =
+      (hidden > 0 ? '<p class="thread-more">' + hidden + ' earlier message' + (hidden === 1 ? "" : "s") + '</p>' : "") +
+      shown.map(function (m) {
+        return '<span class="bubble bubble-' + m.s + '">' + m.t + '<time>' + m.w + '</time></span>';
+      }).join("");
+
+    // Draft is built from what we already know, so the owner edits rather than writes.
+    // Nothing is ever sent from here — the link just opens their own WhatsApp.
+    var draft;
+    if (d.dir === "in") {
+      draft = "Hi — apologies for the slow reply. Coming back to you on this today.";
+    } else if (d.amount) {
+      draft = "Hi — following up on the quote we sent on " + d.quoted +
+              " (PKR " + money(d.amount) + "). Any questions on it?";
+    } else {
+      draft = "Hi — following up on what we sent over. Any questions on it?";
+    }
+
+    document.getElementById("d-nudge").setAttribute("href",
+      "https://wa.me/" + d.wa + "?text=" + encodeURIComponent(draft));
+    document.getElementById("d-link").textContent = "wa.me/" + d.wa;
+    document.getElementById("d-draft").textContent = "“" + draft + "”";
+
+    statusBtns.forEach(function (b) {
+      b.setAttribute("aria-pressed", String(d.status === b.getAttribute("data-status")));
+    });
+
+    document.getElementById("reopen-copy").innerHTML = isOpen(d)
+      ? "<b>Closing stops the countdown.</b> If this customer messages again, it comes back automatically under <b>You need to reply</b> — nothing to un-archive."
+      : "<b>Tracking stopped.</b> The next message from this number brings it back automatically. Press the same button again to reopen it now.";
+  }
+
+  // ---------- timeline (secondary) ----------
+
+  var PAD_L = 66, PAD_R = 34, TOP = 26, BOT = 40, W = 1000, H = 260;
+  var MID = (TOP + (H - BOT)) / 2;
+
+  function xOf(h) {
+    var t = Math.pow(Math.max(h, 0.2) / SPAN_H, 0.55);
+    return PAD_L + t * (W - PAD_L - PAD_R);
+  }
+
+  function rOf(d) {
+    if (!d.amount) return 5;
+    return 5.5 + (Math.sqrt(d.amount) / Math.sqrt(110000)) * 11;
+  }
+
+  function yOf(d) {
+    var offsets = [34, 62, 90];
+    return MID + (d.dir === "in" ? -1 : 1) * offsets[d.lane];
+  }
+
+  var TICKS = [ {h:24,label:"24 hrs"}, {h:72,label:"3 days"}, {h:168,label:"7 days"}, {h:336,label:"14 days"} ];
+
+  function drawField() {
+    var parts = [];
+    parts.push('<line class="axis-line" x1="' + PAD_L + '" y1="' + MID + '" x2="' + (W - PAD_R) + '" y2="' + MID + '"/>');
+
+    TICKS.forEach(function (t) {
+      var x = xOf(t.h), isT = t.h === 24;
+      parts.push('<line class="' + (isT ? "threshold-line" : "tick-line") + '" x1="' + x + '" y1="' + TOP + '" x2="' + x + '" y2="' + (H - BOT) + '"/>');
+      parts.push('<text class="axis-text' + (isT ? " threshold-text" : "") + '" x="' + x + '" y="' + (H - BOT + 19) + '" text-anchor="middle">' + t.label + '</text>');
+    });
+
+    parts.push('<text class="axis-text" x="' + PAD_L + '" y="' + (H - BOT + 19) + '" text-anchor="start">now</text>');
+    parts.push('<text class="lane-text" x="' + PAD_L + '" y="' + (TOP + 2) + '">you need to reply</text>');
+    parts.push('<text class="lane-text" x="' + PAD_L + '" y="' + (H - BOT - 6) + '">waiting on customer</text>');
+
+    DATA.filter(isOpen).forEach(function (d) {
+      var x = xOf(d.hours), y = yOf(d), r = rOf(d);
+      var cls = d.dir === "in" ? "d-owed" : "d-parked";
+
+      var mark = d.amount
+        ? '<circle class="disc" cx="' + x + '" cy="' + y + '" r="' + r.toFixed(1) + '" fill="currentColor"/>'
+        : '<circle class="ring" cx="' + x + '" cy="' + y + '" r="' + r.toFixed(1) + '" stroke="currentColor"/>';
+
+      parts.push(
+        '<g class="dot ' + cls + '" data-id="' + d.id + '" tabindex="0" role="button" ' +
+          'aria-label="' + d.name + ", " + statusText(d).toLowerCase() + ", " + waitText(d).replace(/<\/?b>/g, "") +
+            ", " + (d.amount ? "PKR " + money(d.amount) : "no amount recorded") + '" ' +
+          'data-selected="' + (d.id === selectedId) + '">' +
+          '<line class="stem" x1="' + x + '" y1="' + MID + '" x2="' + x + '" y2="' + y + '" stroke="currentColor"/>' +
+          '<circle class="halo" cx="' + x + '" cy="' + y + '" r="' + (r + 5).toFixed(1) + '"/>' +
+          mark +
+          '<text class="dot-label" x="' + x + '" y="' + (y + (d.dir === "in" ? -(r + 10) : r + 18)) + '" text-anchor="middle">' +
+            d.name.split(" ")[0] + " · " + elapsedShort(d.hours) +
+          '</text>' +
+        '</g>'
+      );
+    });
+
+    fieldEl.innerHTML = parts.join("");
+  }
+
+  function refresh() { drawField(); renderRows(); renderDetail(); renderStats(); }
+
+  function select(id) {
+    selectedId = id;
+    renderRows();
+    renderDetail();
+    Array.prototype.forEach.call(fieldEl.querySelectorAll(".dot"), function (g) {
+      g.setAttribute("data-selected", String(g.getAttribute("data-id") === id));
+    });
+  }
+
+  rowsEl.addEventListener("click", function (e) {
+    var row = e.target.closest(".row");
+    if (row) select(row.getAttribute("data-id"));
+  });
+
+  fieldEl.addEventListener("click", function (e) {
+    var g = e.target.closest(".dot");
+    if (g) select(g.getAttribute("data-id"));
+  });
+
+  fieldEl.addEventListener("keydown", function (e) {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    var g = e.target.closest(".dot");
+    if (g) { e.preventDefault(); select(g.getAttribute("data-id")); }
+  });
+
+  filterBtns.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      activeFilter = btn.getAttribute("data-filter");
+      filterBtns.forEach(function (b) { b.setAttribute("aria-pressed", String(b === btn)); });
+      renderRows();
+    });
+  });
+
+  statusBtns.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var d = DATA.filter(function (x) { return x.id === selectedId; })[0];
+      var want = btn.getAttribute("data-status");
+      // Same button again reopens it — the manual mirror of "they messaged again".
+      d.status = d.status === want ? "open" : want;
+      refresh();
+    });
+  });
+
+  document.getElementById("d-mark").addEventListener("click", function () {
+    var d = DATA.filter(function (x) { return x.id === selectedId; })[0];
+    var input = window.prompt(
+      "Amount quoted to " + d.name + " (PKR). Optional — leave blank to skip.",
+      d.amount ? String(d.amount) : ""
+    );
+    if (input === null) return;
+    var clean = parseInt(String(input).replace(/[^0-9]/g, ""), 10);
+    d.amount = isNaN(clean) || clean <= 0 ? null : clean;
+    refresh();
+  });
+
+  refresh();
+})();
+</script>

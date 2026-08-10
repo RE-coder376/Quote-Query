@@ -1,0 +1,1354 @@
+<title>QuoteRadar — product film (PKR)</title>
+
+<style>
+  /* A product film commits to one visual world. Single theme by design. */
+  :root {
+    --ink:        #080D10;
+    --ink-2:      #0E161A;
+    --ink-3:      #16232A;
+    --line:       #223540;
+    --line-2:     #2E4552;
+    --fg:         #E8F0F3;
+    --fg-2:       #96AEB9;
+    --fg-3:       #5B7280;
+
+    --accent:     #5FB0D4;
+    --owed:       #F5793B;
+    --parked:     #7C9AAA;
+    --money:      #FFFFFF;
+    --good:       #4FC08D;
+    --warn:       #E5B33C;
+
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+    --ease-out: cubic-bezier(.16, .84, .32, 1);
+    --ease-io:  cubic-bezier(.62, .04, .28, .98);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: #05090B;
+    color: var(--fg);
+    font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+    display: grid;
+    place-items: center;
+    min-height: 100vh;
+    padding: 1rem;
+    overflow-x: hidden;
+  }
+
+  .frame { width: 100%; max-width: 1180px; display: flex; flex-direction: column; gap: .75rem; }
+
+  /* ---------- stage ---------- */
+
+  .stage {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: radial-gradient(130% 120% at 20% -10%, var(--ink-2) 0%, var(--ink) 60%);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+    container-type: inline-size;
+    box-shadow: 0 40px 90px -50px rgba(0,0,0,.95);
+  }
+
+  /* faint drafting grid — carries over from the product */
+  .stage::before {
+    content: "";
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(to right, rgba(255,255,255,.022) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255,255,255,.022) 1px, transparent 1px);
+    background-size: 4cqw 4cqw;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* a slow accent bloom that drifts — keeps the frame alive between beats */
+  .bloom {
+    position: absolute;
+    width: 60cqw; height: 60cqw;
+    left: 50%; top: 45%;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle, color-mix(in srgb, var(--accent) 16%, transparent) 0%, transparent 62%);
+    filter: blur(2cqw);
+    opacity: .5;
+    transition: background 1.2s var(--ease-io), opacity 1.2s var(--ease-io);
+    pointer-events: none;
+    z-index: 0;
+    animation: drift 22s ease-in-out infinite;
+  }
+
+  @keyframes drift {
+    0%, 100% { transform: translate(-52%, -48%) scale(1); }
+    50%      { transform: translate(-46%, -54%) scale(1.14); }
+  }
+
+  .stage[data-mood="hot"]  .bloom { background: radial-gradient(circle, color-mix(in srgb, var(--owed) 20%, transparent) 0%, transparent 62%); opacity: .62; }
+  .stage[data-mood="good"] .bloom { background: radial-gradient(circle, color-mix(in srgb, var(--good) 18%, transparent) 0%, transparent 62%); opacity: .58; }
+
+  .scene {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity .55s var(--ease-io), visibility .55s;
+    z-index: 1;
+  }
+
+  .scene.on { opacity: 1; visibility: visible; }
+
+  .inner {
+    width: 84cqw;
+    display: flex;
+    flex-direction: column;
+    gap: 2.4cqw;
+  }
+
+  /* ---------- shared bits ---------- */
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 1.15cqw;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    color: var(--fg-3);
+    margin: 0;
+  }
+
+  .rise { opacity: 0; transform: translateY(1.6cqw); }
+  .on .rise { animation: rise .8s var(--ease-out) forwards; }
+
+  @keyframes rise {
+    to { opacity: 1; transform: none; }
+  }
+
+  /* ---------- scene 1: the thread ---------- */
+
+  .thread-wrap {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr);
+    gap: 5cqw;
+    align-items: center;
+  }
+
+  .chat {
+    display: flex;
+    flex-direction: column;
+    gap: 1.1cqw;
+    padding: 2cqw;
+    background: color-mix(in srgb, var(--ink-3) 70%, transparent);
+    border: 1px solid var(--line);
+    border-radius: 1cqw;
+  }
+
+  .msg {
+    max-width: 82%;
+    padding: 1.1cqw 1.4cqw;
+    border-radius: 1.1cqw;
+    font-size: 1.5cqw;
+    line-height: 1.45;
+    opacity: 0;
+    transform: translateY(1.2cqw) scale(.97);
+  }
+
+  .msg time {
+    display: block;
+    font-family: var(--mono);
+    font-size: 1cqw;
+    color: var(--fg-3);
+    margin-top: .5cqw;
+  }
+
+  .msg-in  { align-self: flex-start; background: #1E2C33; border-bottom-left-radius: .25cqw; }
+  .msg-out { align-self: flex-end; background: #21414F; border-bottom-right-radius: .25cqw; }
+
+  .on .msg { animation: pop .7s var(--ease-out) forwards; }
+  .on .msg:nth-of-type(1) { animation-delay: .35s; }
+  .on .msg:nth-of-type(2) { animation-delay: 1.5s; }
+
+  @keyframes pop {
+    to { opacity: 1; transform: none; }
+  }
+
+  /* the silence meter */
+  .silence { text-align: left; }
+
+  .silence-num {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 11cqw;
+    font-weight: 650;
+    line-height: .9;
+    letter-spacing: -.05em;
+    color: var(--owed);
+    margin: 0;
+    text-shadow: 0 0 6cqw color-mix(in srgb, var(--owed) 35%, transparent);
+  }
+
+  .silence-unit { font-size: .26em; letter-spacing: .12em; color: var(--fg-2); margin-left: .3em; }
+  .silence-cap { margin: 1cqw 0 0; font-size: 1.5cqw; color: var(--fg-2); }
+
+  /* ---------- scene 2: buried under traffic ---------- */
+
+  .bury-wrap {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr);
+    gap: 5cqw;
+    align-items: center;
+  }
+
+  /* 5 rows visible, 6 in the column — so the sixth genuinely leaves the screen */
+  .bury-frame {
+    position: relative;
+    height: 27cqw;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 1cqw;
+    background: color-mix(in srgb, var(--ink-3) 70%, transparent);
+  }
+
+  .bury-col { transform: translateY(-27cqw); }
+  .on .bury-col { animation: bury 5.4s var(--ease-io) .7s forwards; }
+
+  @keyframes bury {
+    from { transform: translateY(-27cqw); }
+    to   { transform: translateY(0); }
+  }
+
+  .brow {
+    height: 5.4cqw;
+    display: grid;
+    grid-template-columns: 3.4cqw minmax(0, 1fr) 3.5cqw;
+    gap: 1cqw;
+    align-items: center;
+    padding: 0 1.4cqw;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .bav {
+    width: 3.4cqw; height: 3.4cqw; border-radius: 50%;
+    background: #24363F; color: var(--fg-2);
+    display: grid; place-items: center;
+    font-size: 1.1cqw; font-weight: 650;
+  }
+
+  .brow b { display: block; font-size: 1.3cqw; font-weight: 600; }
+  .brow i { display: block; font-style: normal; font-size: 1.1cqw; color: var(--fg-3); margin-top: .2cqw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .brow em { font-style: normal; font-family: var(--mono); font-size: .95cqw; color: var(--fg-3); text-align: right; }
+
+  /* the one that matters, sinking */
+  .brow.target { background: color-mix(in srgb, var(--owed) 12%, transparent); }
+  .brow.target .bav { background: var(--owed); color: #180703; }
+  .brow.target b { color: var(--owed); }
+  .brow.target em { color: var(--owed); }
+
+  .on .brow.target { animation: sink 5.4s var(--ease-io) .7s forwards; }
+
+  @keyframes sink {
+    from { opacity: 1; }
+    70%  { opacity: .85; }
+    to   { opacity: .32; }
+  }
+
+  .bury-fade {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 6cqw;
+    background: linear-gradient(to top, var(--ink) 10%, transparent);
+    pointer-events: none;
+  }
+
+  /* ---------- scene 3: the queue assembles ---------- */
+
+  .queue {
+    background: color-mix(in srgb, var(--ink-3) 72%, transparent);
+    border: 1px solid var(--line);
+    border-radius: 1cqw;
+    overflow: hidden;
+  }
+
+  .qrow {
+    display: grid;
+    grid-template-columns: .35cqw minmax(0, 1fr) 19.5cqw 12cqw;
+    gap: 1.6cqw;
+    align-items: center;
+    padding: 1.35cqw 1.8cqw;
+    border-bottom: 1px solid var(--line);
+    opacity: 0;
+    transform: translateX(-2.5cqw);
+    transition: background .5s var(--ease-io), transform .9s var(--ease-out), opacity .7s var(--ease-out);
+  }
+
+  .qrow:last-child { border-bottom: 0; }
+  .on .qrow { animation: slidein .85s var(--ease-out) forwards; }
+
+  @keyframes slidein { to { opacity: 1; transform: none; } }
+
+  .qstripe { width: .35cqw; height: 3.2cqw; border-radius: .2cqw; background: var(--line-2); transition: background .6s var(--ease-io); }
+  .qrow.owed   .qstripe { background: var(--owed); }
+  .qrow.parked .qstripe { background: var(--parked); }
+
+  .qname { font-size: 1.5cqw; font-weight: 600; margin: 0; }
+  .qprev { font-size: 1.2cqw; color: var(--fg-3); margin: .35cqw 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .qstate { font-size: 1.2cqw; font-weight: 650; margin: 0; transition: color .6s var(--ease-io); }
+  .qrow.owed   .qstate { color: var(--owed); }
+  .qrow.parked .qstate { color: var(--parked); }
+  .qwait { font-size: 1.15cqw; color: var(--fg-3); margin: .3cqw 0 0; }
+
+  .qamt {
+    text-align: right;
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 1.45cqw;
+    font-weight: 650;
+  }
+
+  .qamt.none { color: var(--fg-3); font-size: 1.15cqw; font-family: var(--sans); font-weight: 400; }
+
+  /* the buried quote, surfacing */
+  .on .qrow.resurface { animation: slidein .85s var(--ease-out) forwards, relight 2.4s var(--ease-io) 1.5s; }
+
+  @keyframes relight {
+    0%, 100% { background: transparent; }
+    35%      { background: color-mix(in srgb, var(--owed) 16%, transparent); }
+  }
+
+  .back {
+    display: inline-block;
+    margin-left: .7cqw;
+    font-size: .95cqw;
+    font-weight: 650;
+    padding: .15cqw .6cqw;
+    border-radius: 2cqw;
+    background: var(--owed);
+    color: #180703;
+    vertical-align: middle;
+    opacity: 0;
+    transform: scale(.8);
+  }
+
+  .on .back { animation: pop .5s var(--ease-out) 1.9s forwards; }
+
+  /* callout that draws itself onto the interface */
+  .callout {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    gap: .8cqw;
+    padding: .8cqw 1.2cqw;
+    background: var(--accent);
+    color: #07171E;
+    font-size: 1.3cqw;
+    font-weight: 650;
+    border-radius: .6cqw;
+    white-space: nowrap;
+    opacity: 0;
+    transform: translateY(.8cqw) scale(.94);
+    box-shadow: 0 1.5cqw 3cqw -1cqw rgba(0,0,0,.7);
+    z-index: 4;
+  }
+
+  .callout.show { animation: pop .6s var(--ease-out) forwards; }
+
+  /* ---------- scene 4: the money ---------- */
+
+  .money-block { text-align: center; }
+
+  .money-cur {
+    font-family: var(--mono);
+    font-size: 2cqw;
+    letter-spacing: .3em;
+    color: var(--owed);
+    margin: 0 0 .8cqw;
+  }
+
+  .money-num {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 17cqw;
+    font-weight: 650;
+    line-height: .86;
+    letter-spacing: -.055em;
+    color: var(--money);
+    margin: 0;
+    text-shadow: 0 0 8cqw rgba(255,255,255,.14);
+  }
+
+  .money-sub {
+    margin: 2.4cqw auto 0;
+    max-width: 52cqw;
+    font-size: 1.6cqw;
+    line-height: 1.6;
+    color: var(--fg-2);
+  }
+
+  .money-sub b { color: var(--fg); font-weight: 650; }
+
+  .rule-in {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--line-2), transparent);
+    margin: 2cqw 0 0;
+    transform: scaleX(0);
+    transform-origin: center;
+  }
+
+  .on .rule-in { animation: wipe .9s var(--ease-out) .5s forwards; }
+  @keyframes wipe { to { transform: scaleX(1); } }
+
+  /* ---------- scene 6: the handoff ---------- */
+
+  .handoff-wrap {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 4cqw;
+    align-items: center;
+  }
+
+  .draft-card {
+    background: color-mix(in srgb, var(--ink-3) 82%, transparent);
+    border: 1px solid var(--line-2);
+    border-radius: 1cqw;
+    padding: 2cqw;
+    display: flex;
+    flex-direction: column;
+    gap: 1.2cqw;
+  }
+
+  .draft-label { font-size: 1.2cqw; color: var(--fg-3); margin: 0; }
+
+  .draft-body {
+    font-size: 1.55cqw;
+    line-height: 1.55;
+    border-left: .25cqw solid var(--accent);
+    padding-left: 1.2cqw;
+    margin: 0;
+    color: var(--fg);
+  }
+
+  .wa-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .7cqw;
+    padding: 1.1cqw 1.4cqw;
+    border-radius: .6cqw;
+    background: var(--good);
+    color: #04140D;
+    font-size: 1.45cqw;
+    font-weight: 700;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .wa-btn::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(105deg, transparent 35%, rgba(255,255,255,.5) 50%, transparent 65%);
+    transform: translateX(-120%);
+  }
+
+  /* Two passes, not infinite — a sheen that never stops reads as a nervous flicker. */
+  .on .wa-btn::after { animation: sheen 1.5s var(--ease-io) 1.1s 2; }
+  @keyframes sheen { to { transform: translateX(120%); } }
+
+  .phone {
+    justify-self: center;
+    width: 22cqw;
+    aspect-ratio: 9 / 17.5;
+    border: .4cqw solid var(--line-2);
+    border-radius: 2.6cqw;
+    background: #0B1418;
+    padding: 1.2cqw;
+    display: flex;
+    flex-direction: column;
+    gap: .9cqw;
+    box-shadow: 0 3cqw 6cqw -2cqw rgba(0,0,0,.85);
+    opacity: 0;
+    transform: translateY(3cqw) rotate(2deg);
+  }
+
+  .on .phone { animation: phonein 1s var(--ease-out) 1.4s forwards; }
+  @keyframes phonein { to { opacity: 1; transform: rotate(-1.5deg); } }
+
+  .phone-top {
+    font-size: 1.1cqw;
+    color: var(--fg-3);
+    padding-bottom: .8cqw;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .phone-msg {
+    align-self: flex-end;
+    max-width: 88%;
+    background: #1D4A3A;
+    padding: .9cqw 1cqw;
+    border-radius: .9cqw;
+    border-bottom-right-radius: .2cqw;
+    font-size: 1.15cqw;
+    line-height: 1.45;
+    opacity: 0;
+  }
+
+  .on .phone-msg { animation: pop .6s var(--ease-out) 2.3s forwards; }
+
+  .phone-cursor {
+    align-self: flex-end;
+    font-size: 1.05cqw;
+    color: var(--good);
+    opacity: 0;
+  }
+
+  .on .phone-cursor { animation: pop .5s var(--ease-out) 2.9s forwards; }
+
+  /* ---------- scene 7: the whole product ---------- */
+
+  .product-frame {
+    position: relative;
+    width: 92cqw;
+    height: 88cqh;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+  }
+
+  /* starts tight on the money figure, pulls back to reveal the entire screen */
+  .product {
+    width: 100%;
+    transform-origin: 22% 12%;
+    transform: scale(2.15);
+    opacity: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1cqw;
+    background: #0F171B;
+    border: 1px solid var(--line);
+    border-radius: .9cqw;
+    padding: 1.4cqw;
+    box-shadow: 0 4cqw 8cqw -3cqw rgba(0,0,0,.9);
+  }
+
+  .on .product { animation: pullback 5.2s var(--ease-io) .2s forwards; }
+
+  @keyframes pullback {
+    0%   { transform: scale(2.15); opacity: 0; }
+    12%  { opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  /* light sweeping across the finished screen */
+  .sweep {
+    position: absolute; inset: 0;
+    background: linear-gradient(105deg, transparent 38%, rgba(255,255,255,.10) 50%, transparent 62%);
+    transform: translateX(-130%);
+    pointer-events: none;
+  }
+
+  .on .sweep { animation: sweep 1.6s var(--ease-io) 5.2s forwards; }
+  @keyframes sweep { to { transform: translateX(130%); } }
+
+  .p-mast { display: flex; justify-content: space-between; align-items: center; }
+  .p-mark { display: inline-flex; align-items: center; gap: .4cqw; font-size: 1.15cqw; font-weight: 650; }
+  .p-mark svg { color: var(--accent); }
+  .p-conn { font-size: .85cqw; color: var(--fg-3); }
+
+  .p-cards { display: grid; grid-template-columns: 2fr 1fr; gap: .7cqw; }
+
+  .p-card {
+    background: #162126; border: 1px solid var(--line);
+    border-radius: .5cqw; padding: .85cqw 1cqw;
+  }
+
+  .p-card-money { border-color: var(--line-2); }
+  .p-label { font-size: .8cqw; color: var(--fg-3); margin: 0; }
+  .p-money { font-family: var(--mono); font-size: 3.2cqw; font-weight: 650; letter-spacing: -.04em; margin: .25cqw 0 0; line-height: 1; }
+  .p-cur { font-size: .34em; color: var(--fg-3); margin-right: .4em; }
+  .p-stat { font-family: var(--mono); font-size: 2.1cqw; font-weight: 650; margin: .3cqw 0 0; line-height: 1.1; }
+  .p-sub { font-size: .78cqw; color: var(--fg-3); margin: .35cqw 0 0; line-height: 1.45; }
+  .p-sub b { color: var(--fg-2); }
+
+  .p-chips { display: flex; gap: .4cqw; }
+
+  .p-chip {
+    font-size: .78cqw; padding: .35cqw .7cqw; border-radius: 2cqw;
+    border: 1px solid var(--line); color: var(--fg-3);
+  }
+
+  .p-chip b { color: var(--fg-2); margin-left: .3em; }
+  .p-chip.on { background: var(--accent); border-color: var(--accent); color: #07171E; }
+  .p-chip.on b { color: #07171E; }
+  .p-chip.owed { border-color: color-mix(in srgb, var(--owed) 50%, var(--line)); color: var(--owed); }
+  .p-chip.owed b { color: var(--owed); }
+
+  .p-work { display: grid; grid-template-columns: 1fr 21cqw; gap: .7cqw; align-items: start; }
+
+  .p-list { background: #162126; border: 1px solid var(--line); border-radius: .5cqw; overflow: hidden; }
+
+  .p-row {
+    display: grid; grid-template-columns: .22cqw 1fr 11cqw 7cqw;
+    gap: .8cqw; align-items: center;
+    padding: .68cqw .9cqw; border-bottom: 1px solid var(--line);
+  }
+
+  .p-row:last-child { border-bottom: 0; }
+  .p-row.sel { background: rgba(95,176,212,.10); }
+  .p-row.done { opacity: .5; }
+  .p-row b { display: block; font-size: .92cqw; font-weight: 600; }
+  .p-row i { display: block; font-style: normal; font-size: .76cqw; color: var(--fg-3); margin-top: .12cqw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .p-stripe { width: .22cqw; height: 2cqw; border-radius: .12cqw; background: var(--line-2); }
+  .p-row.owed .p-stripe { background: var(--owed); }
+  .p-row.parked .p-stripe { background: var(--parked); }
+
+  .p-st { font-size: .8cqw; font-weight: 650; }
+  .p-row.owed .p-st { color: var(--owed); }
+  .p-row.parked .p-st { color: var(--parked); }
+  .p-row.done .p-st { color: var(--good); }
+  .p-st i { font-weight: 400; }
+
+  .p-amt { text-align: right; font-family: var(--mono); font-size: .92cqw; font-weight: 650; }
+  .p-amt.none { color: var(--fg-3); font-size: .76cqw; font-family: var(--sans); font-weight: 400; }
+
+  .p-rail {
+    background: #162126; border: 1px solid var(--line); border-radius: .5cqw;
+    padding: .9cqw; display: flex; flex-direction: column; gap: .6cqw;
+  }
+
+  .p-rail-name { font-size: 1cqw; font-weight: 650; margin: 0; }
+  .p-rail-phone { font-family: var(--mono); font-size: .74cqw; color: var(--fg-3); margin: 0; }
+
+  .p-facts { display: flex; flex-direction: column; gap: .3cqw; }
+  .p-facts span { display: flex; justify-content: space-between; gap: .6cqw; font-size: .76cqw; border-bottom: 1px solid var(--line); padding-bottom: .28cqw; }
+  .p-facts i { font-style: normal; color: var(--fg-3); }
+  .p-facts b { font-weight: 600; }
+
+  .p-draft {
+    font-size: .76cqw; line-height: 1.45; color: var(--fg-2);
+    border-left: .16cqw solid var(--accent); padding-left: .55cqw;
+  }
+
+  .p-wa {
+    display: block; text-align: center; background: var(--accent); color: #07171E;
+    font-size: .84cqw; font-weight: 700; padding: .55cqw; border-radius: .35cqw;
+  }
+
+  .p-close { display: grid; grid-template-columns: repeat(3, 1fr); gap: .3cqw; }
+  .p-close span { text-align: center; font-size: .72cqw; color: var(--fg-3); border: 1px solid var(--line-2); border-radius: .3cqw; padding: .38cqw 0; }
+
+  .p-note { font-size: .7cqw; color: var(--fg-3); margin: 0; line-height: 1.4; }
+
+  /* pinging labels */
+  .ping {
+    position: absolute;
+    font-size: 1.05cqw; font-weight: 650;
+    padding: .55cqw .9cqw; border-radius: .45cqw;
+    background: var(--accent); color: #07171E;
+    white-space: nowrap; z-index: 5;
+    opacity: 0; transform: translateY(.7cqw) scale(.92);
+    box-shadow: 0 1.2cqw 2.4cqw -.8cqw rgba(0,0,0,.75);
+  }
+
+  .on .ping { animation: pingin .5s var(--ease-out) forwards, pingout .4s var(--ease-io) forwards; }
+
+  @keyframes pingin  { to { opacity: 1; transform: none; } }
+  @keyframes pingout { to { opacity: 0; transform: translateY(-.5cqw) scale(.96); } }
+
+  .ping-1 { left: 4cqw;  top: 20cqw; animation-delay: 5.4s, 7.2s; }
+  .ping-2 { left: 26cqw; top: 26cqw; animation-delay: 6.0s, 7.6s; background: var(--owed); color: #180703; }
+  .ping-3 { left: 8cqw;  top: 34cqw; animation-delay: 6.6s, 8.0s; }
+  .ping-4 { right: 4cqw; top: 30cqw; animation-delay: 7.2s, 8.6s; background: var(--good); color: #04140D; }
+
+  /* ---------- scene 8: close ---------- */
+
+  .close-wrap { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 2cqw; }
+
+  .stamp {
+    display: inline-flex;
+    align-items: center;
+    gap: 1cqw;
+    padding: 1.1cqw 2.2cqw;
+    border: .25cqw solid var(--good);
+    border-radius: 10cqw;
+    color: var(--good);
+    font-size: 2.4cqw;
+    font-weight: 700;
+    letter-spacing: .04em;
+    opacity: 0;
+    transform: scale(1.4);
+  }
+
+  .on .stamp { animation: stampin .7s var(--ease-out) .3s forwards; }
+  @keyframes stampin { to { opacity: 1; transform: scale(1); } }
+
+  /* fills the gap between the Won stamp and the end card — and shows the
+     one behaviour the film otherwise only asserts in a subtitle */
+  .reopen {
+    display: flex;
+    align-items: center;
+    gap: 1.4cqw;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .reopen-msg {
+    background: #1E2C33;
+    padding: .8cqw 1.2cqw;
+    border-radius: .9cqw;
+    border-bottom-left-radius: .2cqw;
+    font-size: 1.3cqw;
+    color: var(--fg-2);
+    opacity: 0;
+    transform: translateY(.8cqw) scale(.96);
+  }
+
+  .reopen-arrow { color: var(--owed); opacity: 0; transform: scale(.7); }
+
+  .reopen-row {
+    display: inline-flex;
+    align-items: center;
+    gap: .8cqw;
+    font-size: 1.3cqw;
+    color: var(--fg-2);
+    background: color-mix(in srgb, var(--owed) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--owed) 40%, transparent);
+    padding: .7cqw 1.2cqw;
+    border-radius: .5cqw;
+    opacity: 0;
+    transform: translateY(.8cqw);
+  }
+
+  .reopen-row b { color: var(--owed); font-weight: 650; }
+  .reopen-stripe { width: .3cqw; height: 1.8cqw; border-radius: .15cqw; background: var(--owed); }
+
+  .on .reopen-msg   { animation: pop .6s var(--ease-out) 3.2s forwards; }
+  .on .reopen-arrow { animation: pop .5s var(--ease-out) 4.0s forwards; }
+  .on .reopen-row   { animation: pop .6s var(--ease-out) 4.5s forwards; }
+
+  .endmark {
+    display: flex;
+    align-items: center;
+    gap: 1.2cqw;
+    font-size: 4.4cqw;
+    font-weight: 650;
+    letter-spacing: -.03em;
+  }
+
+  .endmark svg { color: var(--accent); }
+
+  .endline { font-size: 1.9cqw; color: var(--fg-2); margin: 0; max-width: 54cqw; line-height: 1.55; }
+
+  /* ---------- subtitles ---------- */
+
+  .subs {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    padding: 4cqw 8cqw 3.2cqw;
+    background: linear-gradient(to top, rgba(5,9,11,.94) 30%, transparent);
+    z-index: 6;
+    pointer-events: none;
+    text-align: center;
+  }
+
+  .sub-line {
+    margin: 0;
+    font-size: 2.5cqw;
+    font-weight: 650;
+    line-height: 1.32;
+    letter-spacing: -.02em;
+    text-wrap: balance;
+  }
+
+  .sub-line .w {
+    display: inline-block;
+    opacity: 0;
+    transform: translateY(.7cqw);
+    filter: blur(.35cqw);
+    animation: word .5s var(--ease-out) forwards;
+  }
+
+  @keyframes word {
+    to { opacity: 1; transform: none; filter: blur(0); }
+  }
+
+  .sub-line .hl { color: var(--owed); }
+  .sub-line .hl-a { color: var(--accent); }
+  .sub-line .hl-g { color: var(--good); }
+
+  /* ---------- chrome ---------- */
+
+  .progress {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: .35cqw;
+    background: rgba(255,255,255,.07);
+    z-index: 7;
+  }
+
+  .progress i {
+    display: block;
+    height: 100%;
+    width: 0;
+    background: linear-gradient(90deg, var(--accent), var(--owed));
+  }
+
+  .controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    font-size: .82rem;
+    color: var(--fg-3);
+  }
+
+  .ctrl-group { display: flex; gap: .5rem; }
+
+  .ctrl {
+    font: inherit;
+    font-size: .82rem;
+    padding: .45rem .9rem;
+    border-radius: 4px;
+    border: 1px solid var(--line-2);
+    background: transparent;
+    color: var(--fg-2);
+    cursor: pointer;
+    transition: background .15s, color .15s, border-color .15s;
+  }
+
+  .ctrl:hover { color: var(--fg); border-color: var(--fg-3); background: rgba(255,255,255,.04); }
+  .ctrl:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .scene-tag { font-family: var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+
+  /* render mode: stage fills the viewport exactly, chrome hidden, so a
+     1920x1080 capture is pixel-for-pixel the frame and nothing else */
+  body.render { padding: 0; min-height: 0; }
+  body.render .frame { max-width: none; gap: 0; }
+  body.render .controls,
+  body.render .progress { display: none; }
+
+  body.render .stage {
+    width: 100vw; height: 100vh;
+    aspect-ratio: auto;
+    border: 0; border-radius: 0; box-shadow: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .bloom { animation: none; }
+    .on .wa-btn::after { animation: none; }
+    .sub-line .w { filter: none; }
+  }
+</style>
+
+<div class="frame">
+
+  <div class="stage" id="stage" data-mood="calm">
+    <div class="bloom" aria-hidden="true"></div>
+
+    <!-- 1 — the thread that died -->
+    <section class="scene" data-scene="0">
+      <div class="inner">
+        <div class="thread-wrap">
+          <div class="chat">
+            <div class="msg msg-in">Please quote the full showroom fit-out — 240 sqm, handover by October.<time>24 July, 11:20</time></div>
+            <div class="msg msg-out">Attached: full scope + PKR 110,000. Happy to walk through it.<time>25 July, 16:45</time></div>
+          </div>
+          <div class="silence">
+            <p class="eyebrow rise" style="animation-delay:2.4s">Then nothing</p>
+            <p class="silence-num rise" style="animation-delay:2.6s"><span id="s1-days">0</span><span class="silence-unit">days</span></p>
+            <p class="silence-cap rise" style="animation-delay:3.4s">No follow-up. No reminder. It just went quiet.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2 — buried under the day's traffic -->
+    <section class="scene" data-scene="1">
+      <div class="inner">
+        <div class="bury-wrap">
+          <div class="bury-frame">
+            <div class="bury-col">
+              <div class="brow"><span class="bav">SK</span><span><b>Sadaf Kitchens</b><i>Salam, are you free for a site visit Tuesday?</i></span><em>now</em></div>
+              <div class="brow"><span class="bav">MH</span><span><b>Gulberg Facility Services</b><i>Price for re-laminating 40 corridor doors</i></span><em>6h</em></div>
+              <div class="brow"><span class="bav">AQ</span><span><b>Ravi Road Timber</b><i>Delivery reaching your unit at 2pm</i></span><em>1d</em></div>
+              <div class="brow"><span class="bav">V4</span><span><b>DHA Phase 5 — Mrs. Ayesha</b><i>Sending photos of the pantry units now</i></span><em>2d</em></div>
+              <div class="brow"><span class="bav">BW</span><span><b>Emporium Retail — Shop 214</b><i>Any update on the counter joinery price?</i></span><em>2d</em></div>
+              <div class="brow target"><span class="bav">ZI</span><span><b>Gulberg Office Furnishing</b><i>Full quote — PKR 110,000</i></span><em>9d</em></div>
+            </div>
+            <div class="bury-fade" aria-hidden="true"></div>
+          </div>
+          <div class="silence">
+            <p class="eyebrow rise" style="animation-delay:.4s">The same week</p>
+            <p class="silence-num rise" style="animation-delay:.6s"><span id="s2-count">0</span><span class="silence-unit">new chats</span></p>
+            <p class="silence-cap rise" style="animation-delay:1.2s">Suppliers, site photos, new enquiries. The PKR 110,000 quote is still in there — it just stopped being on screen.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3 — the queue assembles -->
+    <section class="scene" data-scene="2">
+      <div class="inner" style="position:relative">
+        <p class="eyebrow rise">Every chat, watched automatically</p>
+        <div class="queue">
+          <div class="qrow parked resurface" style="animation-delay:.15s">
+            <span class="qstripe"></span>
+            <span><p class="qname">Gulberg Office Furnishing <span class="back">back on the list</span></p><p class="qprev">Full quote for the Gulberg showroom fit-out</p></span>
+            <span><p class="qstate">Waiting on customer</p><p class="qwait">No customer reply for 9 days</p></span>
+            <span class="qamt">PKR 110,000</span>
+          </div>
+          <div class="qrow owed" style="animation-delay:.3s">
+            <span class="qstripe"></span>
+            <span><p class="qname">Emporium Retail — Shop 214</p><p class="qprev">Any update on the counter joinery price?</p></span>
+            <span><p class="qstate">You need to reply</p><p class="qwait">No reply from you for 2 days</p></span>
+            <span class="qamt none">No amount recorded</span>
+          </div>
+          <div class="qrow parked" style="animation-delay:.45s">
+            <span class="qstripe"></span>
+            <span><p class="qname">Al-Karam Interiors</p><p class="qprev">Revised wardrobe drawings + BOQ for DHA villa 12</p></span>
+            <span><p class="qstate">Waiting on customer</p><p class="qwait">No customer reply for 4 days</p></span>
+            <span class="qamt">PKR 68,000</span>
+          </div>
+          <div class="qrow owed" style="animation-delay:.6s">
+            <span class="qstripe"></span>
+            <span><p class="qname">Gulberg Facility Services</p><p class="qprev">Price for re-laminating 40 corridor doors</p></span>
+            <span><p class="qstate">You need to reply</p><p class="qwait">No reply from you for 6 hours</p></span>
+            <span class="qamt none">No amount recorded</span>
+          </div>
+          <div class="qrow parked" style="animation-delay:.75s">
+            <span class="qstripe"></span>
+            <span><p class="qname">Bahria Dental — Dr. Faisal</p><p class="qprev">6 storage cabinets for the treatment rooms</p></span>
+            <span><p class="qstate">Waiting on customer</p><p class="qwait">No customer reply for 12 days</p></span>
+            <span class="qamt">PKR 27,000</span>
+          </div>
+        </div>
+        <div class="callout" id="callout-1" style="right:2cqw; top:-1.4cqw">Nothing tagged. Nothing configured.</div>
+      </div>
+    </section>
+
+    <!-- 4 — the money -->
+    <section class="scene" data-scene="3">
+      <div class="inner">
+        <div class="money-block">
+          <p class="money-cur rise">PKR</p>
+          <p class="money-num"><span id="s4-money">0</span></p>
+          <div class="rule-in"></div>
+          <p class="money-sub rise" style="animation-delay:1.4s">
+            From <b>4 of the 6</b> quotes with no reply for over 24 hours.
+            <b>Two have no amount recorded</b>, so the real figure is higher.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5 — who owes the answer -->
+    <section class="scene" data-scene="4">
+      <div class="inner" style="position:relative">
+        <div class="queue" id="sort-queue">
+          <div class="qrow owed" style="animation-delay:.1s">
+            <span class="qstripe"></span>
+            <span><p class="qname">Emporium Retail — Shop 214</p><p class="qprev">Any update on the counter joinery price?</p></span>
+            <span><p class="qstate">You need to reply</p><p class="qwait">No reply from you for 2 days</p></span>
+            <span class="qamt none">No amount recorded</span>
+          </div>
+          <div class="qrow owed" style="animation-delay:.2s">
+            <span class="qstripe"></span>
+            <span><p class="qname">Gulberg Facility Services</p><p class="qprev">Price for re-laminating 40 corridor doors</p></span>
+            <span><p class="qstate">You need to reply</p><p class="qwait">No reply from you for 6 hours</p></span>
+            <span class="qamt none">No amount recorded</span>
+          </div>
+          <div class="qrow parked" style="animation-delay:.3s">
+            <span class="qstripe"></span>
+            <span><p class="qname">Bahria Dental — Dr. Faisal</p><p class="qprev">6 storage cabinets for the treatment rooms</p></span>
+            <span><p class="qstate">Waiting on customer</p><p class="qwait">No customer reply for 12 days</p></span>
+            <span class="qamt">PKR 27,000</span>
+          </div>
+          <div class="qrow parked" style="animation-delay:.4s">
+            <span class="qstripe"></span>
+            <span><p class="qname">Gulberg Office Furnishing</p><p class="qprev">Full quote for the Gulberg showroom fit-out</p></span>
+            <span><p class="qstate">Waiting on customer</p><p class="qwait">No customer reply for 9 days</p></span>
+            <span class="qamt">PKR 110,000</span>
+          </div>
+        </div>
+        <div class="callout" id="callout-2" style="left:2cqw; bottom:-4.6cqw; background:var(--owed); color:#180703">Orange = the ball is in your court</div>
+      </div>
+    </section>
+
+    <!-- 6 — the handoff -->
+    <section class="scene" data-scene="5">
+      <div class="inner">
+        <div class="handoff-wrap">
+          <div class="draft-card">
+            <p class="draft-label">Opens their chat with this ready to edit</p>
+            <p class="draft-body">Hi — following up on the quote we sent on 25 July (PKR 110,000). Any questions on it?</p>
+            <span class="wa-btn">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M4 12h13M12 5l7 7-7 7"/></svg>
+              Open this chat in WhatsApp
+            </span>
+          </div>
+          <div class="phone">
+            <p class="phone-top">Gulberg Office Furnishing</p>
+            <div style="flex:1"></div>
+            <div class="phone-msg">Hi — following up on the quote we sent on 25 July (PKR 110,000). Any questions on it?</div>
+            <p class="phone-cursor">your thumb on send ↑</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7 — the whole product -->
+    <section class="scene" data-scene="6">
+      <div class="product-frame">
+        <div class="product">
+
+          <div class="p-mast">
+            <span class="p-mark">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                <circle cx="12" cy="12" r="9.2" opacity=".35"/><circle cx="12" cy="12" r="5" opacity=".6"/>
+                <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><path d="M12 12 L19 6.4"/>
+              </svg>
+              QuoteRadar
+            </span>
+            <span class="p-conn">Elite Interiors — Lahore · Sunday 9 August</span>
+          </div>
+
+          <div class="p-cards">
+            <div class="p-card p-card-money">
+              <p class="p-label">Money stuck in quiet quotes</p>
+              <p class="p-money"><span class="p-cur">PKR</span>250,000</p>
+              <p class="p-sub">From <b>4 of the 6</b> quotes with no reply for over 24 hours. <b>Two have no amount recorded</b>, so the real figure is higher.</p>
+            </div>
+            <div class="p-card">
+              <p class="p-label">Your average first reply</p>
+              <p class="p-stat">3h 40m</p>
+              <p class="p-sub"><span style="color:var(--owed);font-weight:600">51 min slower</span> than last week</p>
+            </div>
+          </div>
+
+          <div class="p-chips">
+            <span class="p-chip on">All open <b>9</b></span>
+            <span class="p-chip owed">You need to reply <b>4</b></span>
+            <span class="p-chip">Waiting on customer <b>5</b></span>
+            <span class="p-chip">Overdue <b>6</b></span>
+            <span class="p-chip">Closed <b>1</b></span>
+          </div>
+
+          <div class="p-work">
+            <div class="p-list">
+              <div class="p-row owed"><span class="p-stripe"></span><span><b>Emporium Retail — Shop 214</b><i>Any update on the counter joinery price?</i></span><span class="p-st">You need to reply<i>No reply from you for 2 days</i></span><span class="p-amt none">No amount</span></div>
+              <div class="p-row owed"><span class="p-stripe"></span><span><b>Gulberg Facility Services</b><i>Price for re-laminating 40 corridor doors</i></span><span class="p-st">You need to reply<i>No reply from you for 6 hours</i></span><span class="p-amt none">No amount</span></div>
+              <div class="p-row parked"><span class="p-stripe"></span><span><b>Bahria Dental — Dr. Faisal</b><i>6 storage cabinets for the treatment rooms</i></span><span class="p-st">Waiting on customer<i>No customer reply for 12 days</i></span><span class="p-amt">PKR 27,000</span></div>
+              <div class="p-row parked sel"><span class="p-stripe"></span><span><b>Gulberg Office Furnishing</b><i>Full quote for the Gulberg showroom fit-out</i></span><span class="p-st">Waiting on customer<i>No customer reply for 9 days</i></span><span class="p-amt">PKR 110,000</span></div>
+              <div class="p-row parked"><span class="p-stripe"></span><span><b>Al-Karam Interiors</b><i>Revised wardrobe drawings + BOQ for DHA villa 12</i></span><span class="p-st">Waiting on customer<i>No customer reply for 4 days</i></span><span class="p-amt">PKR 68,000</span></div>
+              <div class="p-row done"><span class="p-stripe"></span><span><b>Clifton Clinic Reception</b><i>Reception counter + waiting-area joinery</i></span><span class="p-st">Won<i>tracking stopped</i></span><span class="p-amt">PKR 95,000</span></div>
+            </div>
+
+            <div class="p-rail">
+              <p class="p-rail-name">Gulberg Office Furnishing</p>
+              <p class="p-rail-phone">+92 333 883 0914</p>
+              <div class="p-facts">
+                <span><i>Status</i><b>Waiting on customer</b></span>
+                <span><i>No customer reply for</i><b>9 days</b></span>
+                <span><i>Quoted amount</i><b>PKR 110,000</b></span>
+                <span><i>Quote sent</i><b>25 July</b></span>
+              </div>
+              <div class="p-draft">Hi — following up on the quote we sent on 25 July (PKR 110,000). Any questions on it?</div>
+              <span class="p-wa">Open this chat in WhatsApp</span>
+              <div class="p-close"><span>Won</span><span>Lost</span><span>No deal</span></div>
+              <p class="p-note">No reply box, on purpose. Your team keeps answering in WhatsApp.</p>
+            </div>
+          </div>
+
+        </div>
+        <div class="sweep" aria-hidden="true"></div>
+
+        <span class="ping ping-1">The money, always with its denominator</span>
+        <span class="ping ping-2">Filter by who owes the answer</span>
+        <span class="ping ping-3">Every quote, most urgent first</span>
+        <span class="ping ping-4">Open, follow up, close — in one panel</span>
+      </div>
+    </section>
+
+    <!-- 8 — close -->
+    <section class="scene" data-scene="7">
+      <div class="inner">
+        <div class="close-wrap">
+          <span class="stamp">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+            Won — PKR 110,000
+          </span>
+
+          <div class="reopen">
+            <span class="reopen-msg">“One more thing — can you quote the mezzanine too?”</span>
+            <span class="reopen-arrow">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+                <path d="M3 12a9 9 0 1 1 3 6.7"/><path d="M3 20v-6h6"/>
+              </svg>
+            </span>
+            <span class="reopen-row"><span class="reopen-stripe"></span>Gulberg Office Furnishing — back under <b>You need to reply</b></span>
+          </div>
+          <div class="endmark rise" style="animation-delay:6.0s">
+            <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+              <circle cx="12" cy="12" r="9.2" opacity=".35"/>
+              <circle cx="12" cy="12" r="5" opacity=".6"/>
+              <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/>
+              <path d="M12 12 L19 6.4"/>
+            </svg>
+            QuoteRadar
+          </div>
+          <p class="endline rise" style="animation-delay:6.4s">Watches your WhatsApp quotes. Tells you which ones went quiet. Never sends anything on its own.</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="subs"><p class="sub-line" id="subs"></p></div>
+    <div class="progress"><i id="progress-bar"></i></div>
+  </div>
+
+  <div class="controls">
+    <span class="scene-tag" id="scene-tag">Scene 1 / 8</span>
+    <div class="ctrl-group">
+      <button class="ctrl" type="button" id="btn-play">Pause</button>
+      <button class="ctrl" type="button" id="btn-replay">Replay</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var stage    = document.getElementById("stage");
+  var scenes   = Array.prototype.slice.call(document.querySelectorAll(".scene"));
+  var subsEl   = document.getElementById("subs");
+  var barEl    = document.getElementById("progress-bar");
+  var tagEl    = document.getElementById("scene-tag");
+  var playBtn  = document.getElementById("btn-play");
+  var replayBtn= document.getElementById("btn-replay");
+
+  // ---- timeline (ms) ----
+  var SCENES = [
+    { at: 0,     dur: 8200,  mood: "calm" },
+    { at: 8200,  dur: 8400,  mood: "hot"  },
+    { at: 16600, dur: 9400,  mood: "calm" },
+    { at: 26000, dur: 8400,  mood: "hot"  },
+    { at: 34400, dur: 7600,  mood: "calm" },
+    { at: 42000, dur: 9200,  mood: "calm" },
+    { at: 51200, dur: 9800,  mood: "calm" },
+    { at: 61000, dur: 11000, mood: "good" }
+  ];
+
+  var TOTAL = SCENES[SCENES.length - 1].at + SCENES[SCENES.length - 1].dur;
+
+  // ---- subtitle cues ----
+  var CUES = [
+    { at: 600,   t: "A customer asked for a price." },
+    { at: 3000,  t: "You sent it the next morning." },
+    { at: 5400,  t: "Then it went <hl>quiet</hl>." },
+    { at: 8600,  t: "Because the messages never stop arriving." },
+    { at: 11600, t: "Suppliers. Site photos. Three more enquiries." },
+    { at: 14400, t: "The quote is still in there — it is just <hl>forty chats down</hl>." },
+    { at: 17000, t: "QuoteRadar reads two things: <hl-a>who spoke last</hl-a>, and <hl-a>how long ago</hl-a>." },
+    { at: 21200, t: "So the buried ones come <hl-a>straight back to the top</hl-a>." },
+    { at: 24000, t: "However busy the inbox gets, nothing drops off the list." },
+    { at: 26400, t: "Then it shows you what the silence is <hl>worth</hl>." },
+    { at: 31200, t: "And it always shows how many quotes that came from." },
+    { at: 34800, t: "Orange: <hl>they are waiting on you</hl>." },
+    { at: 38200, t: "Slate: <hl-a>you are waiting on them</hl-a>." },
+    { at: 42400, t: "One tap opens the chat, with the follow-up already written." },
+    { at: 46800, t: "In <hl-g>your</hl-g> WhatsApp. Your thumb on send." },
+    { at: 51400, t: "And this is <hl-a>all of it</hl-a>." },
+    { at: 54800, t: "One screen. Every quote, every amount, every wait." },
+    { at: 58000, t: "Nothing to configure on the day you sign up." },
+    { at: 61400, t: "Mark it won, and the countdown stops." },
+    { at: 64400, t: "Then they message again — and it comes <hl>straight back</hl>." },
+    { at: 68200, t: "QuoteRadar — nothing gets quietly forgotten." }
+  ];
+
+  var t0 = null, elapsed = 0, playing = true, raf = null, renderMode = false;
+  var curScene = -1, curCue = -1;
+
+  // ---- animated counters, driven off the master clock ----
+  function counterFor(el, from, to, startAt, dur, fmt) {
+    return function (now) {
+      if (!el) return;
+      var p = Math.max(0, Math.min((now - startAt) / dur, 1));
+      var eased = 1 - Math.pow(1 - p, 3);
+      el.textContent = fmt(Math.round(from + (to - from) * eased));
+    };
+  }
+
+  var comma = function (n) { return n.toLocaleString("en-US"); };
+  var plain = function (n) { return String(n); };
+
+  var counters = [
+    counterFor(document.getElementById("s1-days"),  0, 12,      2600,  3400, plain),
+    counterFor(document.getElementById("s2-count"), 0, 37,      9000,  4200, plain),
+    counterFor(document.getElementById("s4-money"), 0, 250000, 26600,  3000, comma)
+  ];
+
+  // ---- subtitles: word-by-word, staggered ----
+  function renderCue(text) {
+    // markup-lite: <hl>, <hl-a>, <hl-g> wrap a run of words in an accent colour
+    var parts = text.split(/(<\/?hl(?:-[ag])?>)/g);
+    var cls = "", tokens = [];
+
+    parts.forEach(function (p) {
+      if (p === "<hl>")    { cls = "hl";   return; }
+      if (p === "<hl-a>")  { cls = "hl-a"; return; }
+      if (p === "<hl-g>")  { cls = "hl-g"; return; }
+      if (/^<\/hl(-[ag])?>$/.test(p)) { cls = ""; return; }
+      if (!p) return;
+
+      p.split(/\s+/).forEach(function (w) {
+        if (!w) return;
+        // Punctuation sitting after a closing tag must ride on the previous
+        // word. Given its own span it renders as "you ." with a gap.
+        if (/^[.,;:!?]+$/.test(w) && tokens.length) {
+          tokens[tokens.length - 1].t += w;
+          return;
+        }
+        tokens.push({ t: w, c: cls });
+      });
+    });
+
+    subsEl.innerHTML = tokens.map(function (tok, i) {
+      return '<span class="w ' + tok.c + '" style="animation-delay:' + (i * 42) + 'ms">' + tok.t + '</span>';
+    }).join(" ");
+  }
+
+  // Callouts are driven off the master clock, not setTimeout, so that a
+  // frame-stepped render lands them at exactly the same moment every time.
+  var CALLOUTS = [
+    { id: "callout-1", scene: 2, offset: 4200 },
+    { id: "callout-2", scene: 4, offset: 1400 }
+  ];
+
+  function setScene(i) {
+    if (i === curScene) return;
+    curScene = i;
+    scenes.forEach(function (s, n) { s.classList.toggle("on", n === i); });
+    stage.setAttribute("data-mood", SCENES[i] ? SCENES[i].mood : "calm");
+    tagEl.textContent = "Scene " + (i + 1) + " / " + SCENES.length;
+  }
+
+  function reset() {
+    scenes.forEach(function (s) { s.classList.remove("on"); });
+    document.getElementById("callout-1").classList.remove("show");
+    document.getElementById("callout-2").classList.remove("show");
+    subsEl.innerHTML = "";
+    curScene = -1; curCue = -1; elapsed = 0; t0 = null;
+    barEl.style.width = "0%";
+  }
+
+  // Everything the clock drives, in one place — shared by playback and render.
+  function applyState(ms) {
+    for (var i = SCENES.length - 1; i >= 0; i--) {
+      if (ms >= SCENES[i].at) { setScene(i); break; }
+    }
+
+    for (var c = CUES.length - 1; c >= 0; c--) {
+      if (ms >= CUES[c].at) {
+        if (c !== curCue) { curCue = c; renderCue(CUES[c].t); }
+        break;
+      }
+    }
+
+    CALLOUTS.forEach(function (co) {
+      var el = document.getElementById(co.id);
+      if (el) el.classList.toggle("show", curScene === co.scene && ms >= SCENES[co.scene].at + co.offset);
+    });
+
+    counters.forEach(function (fn) { fn(ms); });
+    barEl.style.width = (ms / TOTAL * 100).toFixed(2) + "%";
+  }
+
+  function frame(ts) {
+    if (renderMode) return;
+    if (t0 === null) t0 = ts - elapsed;
+    elapsed = ts - t0;
+
+    if (elapsed >= TOTAL) {
+      elapsed = TOTAL;
+      barEl.style.width = "100%";
+      playing = false;
+      playBtn.textContent = "Play";
+      return;
+    }
+
+    applyState(elapsed);
+    raf = window.requestAnimationFrame(frame);
+  }
+
+  // ---- deterministic frame stepping for capture ----
+  // The clock is decoupled from wall time: every CSS animation is paused and
+  // scrubbed to an exact currentTime, so a slow machine cannot drop a frame.
+  window.__total = TOTAL;
+
+  window.__seek = function (ms) {
+    renderMode = true;
+    if (raf) { window.cancelAnimationFrame(raf); raf = null; }
+
+    applyState(ms);
+    void document.body.offsetHeight;   // flush, so newly-created animations exist
+
+    var sceneStart = curScene >= 0 ? SCENES[curScene].at : 0;
+    var cueStart   = curCue  >= 0 ? CUES[curCue].at : 0;
+
+    document.getAnimations().forEach(function (a) {
+      var el = a.effect && a.effect.target;
+      var origin = sceneStart;
+
+      if (el && el.closest) {
+        if (el.closest(".subs")) origin = cueStart;                       // words start at their cue
+        else if (el.classList && el.classList.contains("bloom")) origin = 0; // ambient runs from zero
+      }
+
+      try {
+        a.pause();
+        a.currentTime = Math.max(0, ms - origin);
+      } catch (e) { /* an animation may have finished and detached */ }
+    });
+  };
+
+  if (/[?&]render=1/.test(window.location.search)) {
+    document.body.classList.add("render");
+    renderMode = true;
+  }
+
+  function play() {
+    if (playing) return;
+    if (elapsed >= TOTAL) { reset(); }
+    playing = true;
+    t0 = null;
+    playBtn.textContent = "Pause";
+    raf = window.requestAnimationFrame(frame);
+  }
+
+  function pause() {
+    playing = false;
+    playBtn.textContent = "Play";
+    if (raf) window.cancelAnimationFrame(raf);
+  }
+
+  playBtn.addEventListener("click", function () { playing ? pause() : play(); });
+
+  replayBtn.addEventListener("click", function () {
+    if (raf) window.cancelAnimationFrame(raf);
+    reset();
+    playing = true;
+    playBtn.textContent = "Pause";
+    raf = window.requestAnimationFrame(frame);
+  });
+
+  raf = window.requestAnimationFrame(frame);
+})();
+</script>

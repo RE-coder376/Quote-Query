@@ -15,11 +15,84 @@ limit runs out mid-task, continuing the same task from where Claude stopped.
 
 ## Current status
 
-**Phase:** Research/spec active. No app code exists yet.
+**Phase:** LIVE on Modal. History sync built. 49 tests green.
 
-**Active agent:** none
+**Active agent:** Claude Code
 
-**Last updated by:** Codex (Aug 6, 2026) - Gulf validation wa.me links added
+**Last updated by:** Claude Code (Aug 10, 2026) — Coexistence history sync +
+nightly backups + volume-reload hardening
+
+### Aug 10, 2026 — Claude Code
+
+Done:
+- **History sync (ROADMAP #2)**: `parse_history_chunks`, `parse_state_sync_contacts`,
+  `sync_phases` table, `service.sync_status`, `GET /api/sync`, dashboard import
+  banner, `tools/simulate.py --history`. 11 new tests.
+- **Nightly backup** to a separate Modal Volume (`modal_app.py::backup`, 02:17 UTC,
+  30 kept, snapshot verified before pruning).
+- **`volume.reload()` on container start** — a stale mount committing over newer
+  writes is the most plausible cause of the data loss below.
+
+Gotchas:
+- History has **no `from_me`**; direction = `from` vs `metadata.display_phone_number`.
+- Modal Volume needs an explicit `reload()`; the backup job silently snapshotted
+  an empty database until it had one.
+- `modal deploy` from Git Bash on Windows dies on the ✓ glyph — prefix
+  `PYTHONIOENCODING=utf-8 PYTHONUTF8=1`.
+
+⚠️ **The live DB was found empty on Aug 10** — the real message verified Aug 9 is
+gone, with a stale `-journal` beside it. Re-tested: writes now survive redeploy
+and container recycling. Cause unproven; backups now bound the loss.
+
+Next step:
+- Tech Provider verification (Hamza — needs a Meta login and, likely, a
+  registered entity). Blocks Embedded Signup, which blocks every real client.
+
+### Working now
+
+```
+app/models.py    Contact / Message / Conversation, 3 states, Outcome
+app/state.py     engine: direction + elapsed time only
+app/webhook.py   Meta payload parsing + X-Hub-Signature-256 verification
+app/store.py     SQLite (stdlib), dedupes on wa_message_id
+app/service.py   ingest + read models; enforces the copy rules server-side
+app/main.py      FastAPI: GET/POST /webhook, read API, dashboard.  NO send endpoint.
+app/static/      live dashboard, built from the demo's stylesheet
+tools/simulate.py       replays real-shaped Meta payloads (no Meta account needed)
+tools/build_dashboard.py rebuilds static/index.html from demo/quoteradar_dashboard_aed.html
+tests/           26 tests
+```
+
+Run: `uvicorn app.main:app --reload` then `python -m tools.simulate --retry-test`
+
+Verified end-to-end: signed webhook → store → state engine → dashboard.
+`applied: 4` on first delivery, `0` on replay (Meta retries are idempotent).
+
+### Blocked on Hamza, not on code
+
+**Meta business verification has not been started.** Everything above is
+exercisable with `tools/simulate.py`, but going live needs a Meta app, a WABA and
+business verification — external clock, free, and the long pole. Nothing else
+gates a first client.
+
+### Integration decision — CLOSED, do not reopen
+
+Researched 2026-08-09. **There is no certified way to support normal/consumer
+WhatsApp.** Three options exist and only two are safe:
+
+| Option | Status |
+|---|---|
+| Cloud API (Meta-hosted) | Official, ToS-compliant, ban-proof. Needs WABA + business verification. |
+| Coexistence (Business app + API on one number) | Official. **Requires the WhatsApp Business app** — consumer WhatsApp has no path. |
+| Baileys / whatsapp-web.js / WAHA / Evolution API | **ToS violation. 68% of SMBs using these report a ban within 12 months; typically detected in 2-8 weeks.** Permanently excluded. |
+
+So onboarding *must* start with the client on the WhatsApp Business app. If a
+prospect is on consumer WhatsApp, migration (free, ~5 min, keeps number + history)
+is step one. There is no workaround and we are not looking for one.
+
+Also noted: **Jan 2026 Meta banned open-ended AI assistant bots** on the WhatsApp
+Business Platform; only structured bots are allowed. QuoteRadar is read-only and
+sends nothing, so it is unaffected — and this further validates the no-AI stance.
 
 ---
 
