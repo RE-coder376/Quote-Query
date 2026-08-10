@@ -100,6 +100,33 @@ def parse_contacts(payload: dict) -> Iterator[tuple[str, str]]:
                     yield wa_id, name
 
 
+def for_phone_number(payload: dict, phone_number_id: str) -> dict:
+    """Drop every change that is not for this instance's own number.
+
+    One instance serves one client. A delivery carrying another number - a
+    misconfigured subscription, a shared app, or a forged payload that somehow
+    passed signature checking - must never be folded in, because there is no
+    per-tenant boundary below this point to catch it.
+
+    An empty phone_number_id disables the filter. Changes with no metadata at
+    all are kept: `statuses` deliveries can omit it, and they are enrichment.
+    """
+    if not phone_number_id:
+        return payload
+
+    entries = []
+    for entry in payload.get("entry", []) or []:
+        kept = []
+        for change in entry.get("changes", []) or []:
+            meta = (change.get("value") or {}).get("metadata")
+            if meta is None or meta.get("phone_number_id") == phone_number_id:
+                kept.append(change)
+        if kept:
+            entries.append({**entry, "changes": kept})
+
+    return {**payload, "entry": entries}
+
+
 def _digits(value: Optional[str]) -> str:
     return "".join(c for c in (value or "") if c.isdigit())
 

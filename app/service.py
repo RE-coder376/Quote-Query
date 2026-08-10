@@ -8,8 +8,9 @@ from . import config
 from .models import Contact, ConvState, Conversation, Outcome, utcnow
 from .state import apply_message, close, is_overdue, reopen, state_for, waiting_for
 from .store import Store
-from .webhook import (parse_contacts, parse_history_chunks, parse_messages,
-                      parse_read_receipts, parse_state_sync_contacts)
+from .webhook import (for_phone_number, parse_contacts, parse_history_chunks,
+                      parse_messages, parse_read_receipts,
+                      parse_state_sync_contacts)
 
 
 def ingest(store: Store, payload: dict) -> int:
@@ -18,6 +19,9 @@ def ingest(store: Store, payload: dict) -> int:
     Idempotent: Meta retries deliveries, and a retry must not re-fold a message
     that is already counted.
     """
+    # Anything for another client's number is dropped before it can touch this
+    # client's data.
+    payload = for_phone_number(payload, config.PHONE_NUMBER_ID)
     applied = 0
 
     # Names first, so a conversation created below already has one.

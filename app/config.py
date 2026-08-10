@@ -33,6 +33,13 @@ DB_PATH = _env("QR_DB_PATH", str(ROOT / "quoteradar.db"))
 
 STALE_HOURS = int(_env("QR_STALE_HOURS", "24"))
 
+# The one WhatsApp number this instance serves. v1 is one instance per client -
+# their data is physically isolated, which is better than multi-tenant at this
+# scale. Set it and any delivery for another number is dropped, so a misrouted
+# or hostile payload cannot merge one client's conversations into another's.
+# Empty accepts everything: correct for local simulation, wrong in production.
+PHONE_NUMBER_ID = _env("QR_PHONE_NUMBER_ID", "")
+
 # Display only. The product never converts or does arithmetic across currencies.
 CURRENCY = _env("QR_CURRENCY", "AED")
 
